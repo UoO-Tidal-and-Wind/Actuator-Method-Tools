@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Literal
 import numpy as np
 
-from .turbine_output._turbine_output import TurbineOutputFile
+from .turbine_output._turbine_output_file import TurbineOutputFile
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING,
