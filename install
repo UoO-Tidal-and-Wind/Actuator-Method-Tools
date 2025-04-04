@@ -1,0 +1,8 @@
+#!/bin/bash
+
+
+echo "sourcing bashrc"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "source \"$SCRIPT_DIR/bashrc\"" >> ~/.bashrc
+
+
