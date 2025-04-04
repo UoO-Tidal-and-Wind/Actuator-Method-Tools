@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AMtools"
+version = "0.1.0"
+description = "Tools for actuator-based methods."
+authors = [{ name = "Dylan Green", email = "dylan.green@eng.ox.ac.uk" }]
+license = { text = "MIT" }
+readme = "README.md"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pyvista",
+    "pandas"
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pylint", "sphinx"]
+
