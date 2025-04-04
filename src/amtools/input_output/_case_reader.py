@@ -12,6 +12,7 @@ from typing import Literal
 import numpy as np
 
 from .turbine_output._turbine_output_file import TurbineOutputFile
+from .post_processing._probe_file import ProbeFile
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING,
@@ -115,6 +116,89 @@ class CaseReader:
 
         file_path = self.turbine_output_path / self.turbine_output_time_dir / file_name
 
+        if not file_path.exists():
+            logging.warning("The '%s' file is missing.", file_path)
+            raise FileNotFoundError(
+                f"The file '{file_path}' does not exist.")
+
+
         file_reader = TurbineOutputFile(file_path)
+        file_reader.read()
+        return file_reader
+
+    def probe(self,
+            probe_name: str,
+            variable_name: str,
+            time_dir: Literal["latest", "first", "exactly", "closest to"] = "latest",
+            time_dir_value: str = ""):
+        """
+        Locate and load a probe file for a given variable from a specified time directory.
+
+        Parameters
+        ----------
+        probe_name : str
+            Name of the probe directory within the post-processing output.
+        variable_name : str
+            Name of the variable to load (e.g., 'U', 'p').
+        time_dir : Literal["latest", "first", "exactly", "closest to"], optional
+            Strategy for selecting the time directory:
+            - "latest": use the highest time value (default)
+            - "first": use the lowest time value
+            - "exactly": use the directory that exactly matches `time_dir_value`
+            - "closest to": use the directory closest to `time_dir_value`
+        time_dir_value : str, optional
+            Required if `time_dir` is "exactly" or "closest to". Should be a string representation
+            of a floating-point time (e.g., "12.5").
+
+        Returns
+        -------
+        ProbeFile
+            A `ProbeFile` object containing the data read from the selected file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the specified probe directory or variable file does not exist.
+        ValueError
+            If `time_dir_value` is not provided when required.
+        """
+
+        probe_path = self.post_processing_path / probe_name
+
+        if not probe_path.exists():
+            logging.warning("The '%s' path is missing.", probe_path)
+            raise FileNotFoundError(
+                f"The path '{probe_path}' does not exist.")
+
+        time_dirs = [f.name for f in probe_path.iterdir()]
+        if time_dir == "latest":
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmax(time_dirs_float)
+            self.turbine_output_time_dir = time_dirs[index]
+        elif time_dir == "first":
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmin(time_dirs_float)
+            self.turbine_output_time_dir = time_dirs[index]
+        elif time_dir == "exactly":
+            if not time_dir_value:
+                raise ValueError(
+                    "time_dir_value must be provided when using 'exactly'.")
+            self.turbine_output_time_dir = time_dir_value
+        elif time_dir == "closest to":
+            if not time_dir_value:
+                raise ValueError(
+                    "time_dir_value must be provided when using 'closest to'.")
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmin(np.abs(time_dirs_float - float(time_dir_value)))
+            self.turbine_output_time_dir = time_dirs[index]
+
+        file_path = probe_path / self.turbine_output_time_dir / variable_name
+
+        if not file_path.exists():
+            logging.warning("The '%s' file is missing.", file_path)
+            raise FileNotFoundError(
+                f"The file '{file_path}' does not exist.")
+
+        file_reader = ProbeFile(file_path)
         file_reader.read()
         return file_reader

@@ -77,18 +77,6 @@ class ProbeFile:
     def read(self):
         """
         Reads and parses the probe file.
-
-        This method performs the following:
-        - Extracts probe indices and (x, y, z) coordinates from header comments.
-        - Detects whether the file contains scalar or vector/tensor data.
-        - Loads numerical time-series data efficiently using NumPy.
-        - Assigns parsed data to `self.time`, `self.data`, and coordinate arrays.
-
-        If the data is vector/tensor type, values are converted from string to numeric format
-        and reshaped into a consistent 2D array format (n_timesteps, n_probes * vector_size).
-
-        Raises:
-            ValueError: If file format is invalid or cannot be parsed.
         """
         probe_pattern = re.compile(
             r"# Probe (\d+) \((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)"
@@ -118,10 +106,10 @@ class ProbeFile:
                     z_coords.append(float(match.group(4)))
             else:
                 if "(" not in line:
-                    delimiter = r"\s+"
+                    delimiter = r"\s+"  # Handle spaces or tabs
                     file_type = "scalar"
                 else:
-                    delimiter = r" {16}"
+                    delimiter = r" {16}"  # Expect exactly 16 spaces
                     file_type = "vector/tensor"
                 break  # No need to process further lines
 
@@ -129,13 +117,25 @@ class ProbeFile:
         self.y = np.array(y_coords, dtype=np.float64)
         self.z = np.array(z_coords, dtype=np.float64)
 
-        # Load numeric data
-        data = np.loadtxt(self.path, comments="#", delimiter=None if delimiter == r"\s+" else 16)
+        data = np.array([])
+        # Use regular expressions to split the data lines
+        if file_type == "scalar":
+            data = np.loadtxt(self.path, comments="#", delimiter=delimiter)
+        elif file_type == "vector/tensor":
+            # Split by 16 spaces and load the data manually
+            with open(self.path, "r", encoding='utf-8') as file:
+                # Skip header lines
+                data_lines = [line for line in file if not line.startswith("#")]
+
+            # Apply regex to split by 16 spaces for each line
+            data = np.array([re.split(r" {16}", line.strip()) for line in data_lines])
 
         self.time = data[:, 0]
         self.data = data[:, 1:]
 
         if file_type == "vector/tensor":
+            # Initialize the data structure as a list of lists (2D structure)
             self.data = np.array([
-                np.fromstring(x.strip("()"), sep=" ") for x in self.data.flatten()
-            ]).reshape(data.shape[0], -1)
+                [np.array(x.strip("()").split(" "), dtype=np.float64) for x in row]
+                for row in self.data
+            ])
