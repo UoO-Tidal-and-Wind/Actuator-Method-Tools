@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: amtools
+Version: 0.1.0
+Summary: Tools for actuator-based methods.
+Author-email: Dylan Green <dylan.green@eng.ox.ac.uk>
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: pyvista
+Requires-Dist: pandas
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+
+# Actuator-Post-Processing
+Post processing scripts for actuator method output files.

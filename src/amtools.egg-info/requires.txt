@@ -1,0 +1,10 @@
+numpy
+scipy
+matplotlib
+pyvista
+pandas
+
+[dev]
+pytest
+pylint
+sphinx

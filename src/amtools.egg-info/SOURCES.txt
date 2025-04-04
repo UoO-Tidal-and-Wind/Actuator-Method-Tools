@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+setup.py
+src/amtools/__init__.py
+src/amtools.egg-info/PKG-INFO
+src/amtools.egg-info/SOURCES.txt
+src/amtools.egg-info/dependency_links.txt
+src/amtools.egg-info/requires.txt
+src/amtools.egg-info/top_level.txt
