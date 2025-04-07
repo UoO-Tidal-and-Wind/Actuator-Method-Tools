@@ -16,6 +16,13 @@ dependencies = [
     "pandas"
 ]
 
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
 [project.optional-dependencies]
 dev = ["pytest", "pylint", "sphinx"]
+
+[project.urls]
+Homepage = "https://github.com/UoO-Tidal-and-Wind/Actuator-Method-Tools/tree/main"
+Issues = "https://github.com/UoO-Tidal-and-Wind/Actuator-Method-Tools/issues"
 

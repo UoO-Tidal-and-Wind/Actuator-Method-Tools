@@ -1,2 +1,15 @@
 # Actuator-Post-Processing
-Post processing scripts for actuator method output files.
+Python package and scripts to be used with the actuator method output files.
+
+## Installation
+Source the bashrc and add the bin directory to the path using 
+```bash
+./install
+```
+Then install the Python package
+```bash
+pip install .
+```
+
+## Contribution
+Please follow the PEP8 formatting style (see [Contributing Guidelines](CONTRIBUTING.md)). Formatting checking with pylint is set up and should be followed unless necessary. 
