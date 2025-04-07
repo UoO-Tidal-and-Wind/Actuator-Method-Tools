@@ -89,6 +89,8 @@ class TurbineOutputFile:
 
         if "Blade" in data.columns:
             self.blade = data["Blade"].to_numpy()
+        else:
+            self.blade = np.full(self.time.shape, None)
 
     def set_path(self, file_path: str):
         """
@@ -104,3 +106,72 @@ class TurbineOutputFile:
         if not Path(self.path).exists():
             logging.error("File '%s' not found.", self.path)
             raise FileNotFoundError(f"The file '{file_path}' does not exist.")
+
+    def crop_time(self, lower_limit: float=-1E-10, upper_limit: float=1E10):
+        """
+        Filters data based on the time range between `lower_limit` and `upper_limit`.
+
+        Parameters:
+        ----------
+        lower_limit : float, optional
+            The minimum time value to include (default is -1E-10).
+        
+        upper_limit : float, optional
+            The maximum time value to include (default is 1E10).
+
+        Modifies:
+        --------
+        self.data, self.dt, self.time, self.blade, self.turbine
+            These attributes are filtered to include only values within the specified time range.
+        """
+
+        mask = (self.time > lower_limit) & (self.time < upper_limit)
+        self.data = self.data[mask]
+        self.dt = self.dt[mask]
+        self.time = self.time[mask]
+        self.blade = self.blade[mask]
+        self.turbine = self.turbine[mask]
+
+    def crop_blade(self, blade_index: int):
+        """
+        Filters data to include only the specified blade index.
+
+        Parameters:
+        ----------
+        blade_index : ind
+            The index of the blade to keep in the filtered data.
+
+        Modifies:
+        --------
+        self.data, self.dt, self.time, self.blade, self.turbine
+            These attributes are filtered to include only values corresponding to the 
+            specified blade.
+        """
+        mask = self.blade == blade_index
+        self.data = self.data[mask]
+        self.dt = self.dt[mask]
+        self.time = self.time[mask]
+        self.blade = self.blade[mask]
+        self.turbine = self.turbine[mask]
+
+    def crop_turbine(self, turbine_index: int):
+        """
+        Filters data to include only the specified turbine index.
+
+        Parameters:
+        ----------
+        turbine_index : ind
+            The index of the turbine to keep in the filtered data.
+
+        Modifies:
+        --------
+        self.data, self.dt, self.time, self.blade, self.turbine
+            These attributes are filtered to include only values corresponding to the 
+            specified turbine.
+        """
+        mask = self.turbine == turbine_index
+        self.data = self.data[mask]
+        self.dt = self.dt[mask]
+        self.time = self.time[mask]
+        self.blade = self.blade[mask]
+        self.turbine = self.turbine[mask]
