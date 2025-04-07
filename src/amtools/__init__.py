@@ -1,5 +1,8 @@
 """
-amtools - A collection of tools for actuator-based methods. 
+amtools
+==========
+
+A package used to automate data processing for actuator method output data.
 """
 
 __version__ = "0.1.0"

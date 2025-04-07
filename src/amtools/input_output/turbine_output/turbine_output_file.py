@@ -1,8 +1,29 @@
 """
-_turbine_output_file - defines the TurbineOutputFile class.
+turbine_output_file
+====================
+
+Defines the `TurbineOutputFile` class.
 
 This module provides a class for reading turbine output files, extracting 
 structured numerical data, and storing it in NumPy arrays.
+
+Attributes:
+    path (str): Path to the turbine output file.
+    turbine (np.ndarray): Array containing turbine IDs.
+    blade (np.ndarray): Array containing blade IDs (if available).
+    time (np.ndarray): Array containing time values.
+    dt (np.ndarray): Array containing time step values.
+    data (np.ndarray): Array containing numerical data.
+
+Example:
+    Example usage of the `TurbineOutputFile` class:
+
+    ```python
+    turbine_file = TurbineOutputFile('turbine_output.txt')
+    turbine_file.read()
+    turbine_file.crop_time(0, 10)
+    ```
+
 """
 
 import logging
@@ -111,7 +132,7 @@ class TurbineOutputFile:
         """
         Filters data based on the time range between `lower_limit` and `upper_limit`.
 
-        Parameters:
+        Parameters
         ----------
         lower_limit : float, optional
             The minimum time value to include (default is -1E-10).
@@ -119,12 +140,11 @@ class TurbineOutputFile:
         upper_limit : float, optional
             The maximum time value to include (default is 1E10).
 
-        Modifies:
+        Modifies
         --------
-        self.data, self.dt, self.time, self.blade, self.turbine
-            These attributes are filtered to include only values within the specified time range.
+        Filters the `self.data`, `self.dt`, `self.time`, `self.blade`, and `self.turbine`
+        attributes to include only values within the specified time range.
         """
-
         mask = (self.time > lower_limit) & (self.time < upper_limit)
         self.data = self.data[mask]
         self.dt = self.dt[mask]
@@ -136,16 +156,15 @@ class TurbineOutputFile:
         """
         Filters data to include only the specified blade index.
 
-        Parameters:
+        Parameters
         ----------
-        blade_index : ind
+        blade_index : int
             The index of the blade to keep in the filtered data.
 
-        Modifies:
+        Modifies
         --------
-        self.data, self.dt, self.time, self.blade, self.turbine
-            These attributes are filtered to include only values corresponding to the 
-            specified blade.
+        Filters the `self.data`, `self.dt`, `self.time`, `self.blade`, and `self.turbine`
+        attributes to include only values corresponding to the specified blade.
         """
         mask = self.blade == blade_index
         self.data = self.data[mask]
@@ -158,16 +177,15 @@ class TurbineOutputFile:
         """
         Filters data to include only the specified turbine index.
 
-        Parameters:
+        Parameters
         ----------
-        turbine_index : ind
+        turbine_index : int
             The index of the turbine to keep in the filtered data.
 
-        Modifies:
+        Modifies
         --------
-        self.data, self.dt, self.time, self.blade, self.turbine
-            These attributes are filtered to include only values corresponding to the 
-            specified turbine.
+        Filters the `self.data`, `self.dt`, `self.time`, `self.blade`, and `self.turbine`
+        attributes to include only values corresponding to the specified turbine.
         """
         mask = self.turbine == turbine_index
         self.data = self.data[mask]

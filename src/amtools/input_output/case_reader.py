@@ -1,9 +1,27 @@
 """
-_case_reader - Defines the CaseReader class for reading case directories.
+case_reader
+===========
 
-This module provides the CaseReader class, which facilitates accessing and
-handling data from a specified case directory. It includes functionality
-for managing turbine output data and post-processing results.
+This module defines the `CaseReader` class, which provides functionality for reading and 
+handling case directories related to turbine output and post-processing results.
+
+The `CaseReader` class facilitates the following:
+- Accessing turbine output data.
+- Retrieving post-processing probe data.
+- Navigating through time directories based on specific criteria (latest, first, exactly, closest
+    to).
+  
+Classes:
+    CaseReader: Handles access to turbine output and post-processing data from a case directory.
+    
+Example:
+    Example usage of the `CaseReader` class:
+
+    ```python
+    case = CaseReader("/path/to/case")
+    turbine_data = case.turbine_output("turbine_data.dat", time_dir="latest")
+    probe_data = case.probe("probe_1", "U", time_dir="first")
+    ```
 """
 
 import logging
@@ -11,8 +29,8 @@ from pathlib import Path
 from typing import Literal
 import numpy as np
 
-from .turbine_output._turbine_output_file import TurbineOutputFile
-from .post_processing._probe_file import ProbeFile
+from .turbine_output.turbine_output_file import TurbineOutputFile
+from .post_processing.probe_file import ProbeFile
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING,

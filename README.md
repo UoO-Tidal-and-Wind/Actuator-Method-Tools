@@ -16,5 +16,15 @@ Then install the Python package
 pip install .
 ```
 
+## Documentation
+To make the documentation please run the following
+```bash
+pip install amtools[docs]
+cd docs
+sphinx-apidoc -f -o . ../src/amtools
+make html
+```
+The documentation can be opened in the build directory.
+
 ## Contribution
 Please follow the PEP8 formatting style (see [Contributing Guidelines](CONTRIBUTING.md)). Formatting checking with pylint is set up and should be followed unless necessary. 

@@ -1,5 +1,29 @@
 """
-_probe_file - defines the ProbeFile class.
+_probe_file
+===========
+
+Defines the `ProbeFile` class.
+
+This module provides a class for representing and processing OpenFOAM-style probe 
+data files. The class can load a probe output file, parse probe coordinates, 
+read scalar or vector/tensor time-series data, and store the data for further analysis.
+
+Attributes:
+    path (str): Path to the probe data file.
+    time (np.ndarray): 1D array of time values from the file.
+    data (np.ndarray): 2D or 3D array of measurement data depending on file type.
+    x (np.ndarray): X-coordinates of probe locations.
+    y (np.ndarray): Y-coordinates of probe locations.
+    z (np.ndarray): Z-coordinates of probe locations.
+
+Example:
+    Example usage of the `ProbeFile` class:
+
+    ```python
+    probe_file = ProbeFile('probe_data.txt')
+    probe_file.read()
+    print(probe_file.time)
+    ```
 """
 
 

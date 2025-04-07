@@ -1,19 +1,34 @@
 """
-Module for phase averaging of time-series data.
+Phase Averaging Module
+=======================
 
-Contains the `PhaseAverageResult` class to store phase-averaged results, and the
-`phase_average_array` function to compute phase averages from time and value arrays.
+This module contains the `PhaseAverageResult` class for storing phase-averaged results, 
+and the `phase_average_array` function to compute phase averages from time and value arrays.
 
-The function bins data based on calculated phase angles and computes the mean and
-standard deviation for each bin, with options for phase offset removal and custom binning.
+The `phase_average_array` function bins data based on calculated phase angles and computes 
+the mean and standard deviation for each bin. There are options for phase offset removal 
+and custom binning.
 
 Classes:
-    PhaseAverageResult: Stores phase-averaged data including mean, std, and bin counts.
+    PhaseAverageResult: Stores phase-averaged data, including mean, standard deviation, 
+    and bin counts.
 
 Functions:
-    phase_average_array: Computes phase averages for time-series data and returns a
-    `PhaseAverageResult`.
+    phase_average_array: Computes phase averages for time-series data and returns a 
+    `PhaseAverageResult` object containing the results.
+
+Example:
+    Example usage of the `phase_average_array` function:
+
+    ```python
+    t_arr = np.array([0.0, 0.1, 0.2, 0.3, 0.4])
+    y_arr = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    result = phase_average_array(t_arr, y_arr, frequency=1.0)
+    print(result.phase_averaged_mean)
+    ```
+    
 """
+
 
 import numpy as np
 
@@ -91,31 +106,25 @@ def phase_average_array(
     values (`t_arr`).
     This function computes the phase averages for a specified frequency and returns a result object.
 
-    Note:
-        - `y_arr` should contain one or more arrays of values. If you wish to phase average only a
-        single array, it should be passed inside another array.
-        - The phase averaging is performed by dividing the phase (calculated from the frequency and
-        time) into bins, and then averaging the values within each bin.
-
     Args:
         t_arr (np.ndarray): Array of time values corresponding to the data in `y_arr`.
         y_arr (np.ndarray): Array (or arrays) of values to phase average. Each row corresponds to a
-        separate array of values.
+            separate array of values.
         frequency (float): The frequency at which to phase average the data (in Hz).
         phase_offset (float, optional): The phase offset to apply when t=0 (in degrees). Defaults
-        to 0.
-        number_of_bins (int, optional): The number of bins to use for phase averaging. Defaults to
-        45.
+            to 0.
+        number_of_bins (int, optional): The number of bins to use for phase averaging. Defaults
+            to 45.
         bin_center_offset (float, optional): A positive value to shift the bin midpoints. Defaults
-        to half the bin width.
+            to half the bin width.
         include_0_and_360 (bool, optional): If `True`, include both 0 and 360 as bin midpoints.
-        Defaults to `True`.
+            Defaults to `True`.
         remove_phase_offset (bool, optional): If `True`, removes the phase offset by correcting for
-        the phase of the signal before averaging. Defaults to `False`.
+            the phase of the signal before averaging. Defaults to `False`.
 
     Returns:
         PhaseAverageResult: An object containing the phase-averaged results, including the bin
-        midpoints, mean values, standard deviation, and bin counts.
+            midpoints, mean values, standard deviation, and bin counts.
 
     Raises:
         ValueError: If `bin_center_offset` is negative or greater than the allowable bin width.

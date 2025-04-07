@@ -35,6 +35,13 @@ build/
 # PyCharm settings
 .idea/
 
+# Sphinx documentation build
+_build/
+doc/_build/
+
+# Sphinx config files
+sphinx/.sphinx/
+
 # Other temporary files
 *.log
 *.swp

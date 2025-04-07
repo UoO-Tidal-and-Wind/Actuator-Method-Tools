@@ -20,7 +20,18 @@ license = "MIT"
 license-files = ["LICEN[CS]E*"]
 
 [project.optional-dependencies]
-dev = ["pytest", "pylint", "sphinx"]
+dev = [
+    "pytest",
+    "pylint",
+    "sphinx",
+    "sphinx-rtd-theme",      
+    "sphinx-autodoc-typehints", 
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx-autodoc-typehints",
+]
 
 [project.urls]
 Homepage = "https://github.com/UoO-Tidal-and-Wind/Actuator-Method-Tools/tree/main"
