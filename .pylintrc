@@ -1,0 +1,12 @@
+[MASTER]
+# List of plugins to load
+load-plugins=
+
+[DESIGN]
+# Allow functions to have up to 10 arguments
+max-args=10
+# Allow functions to have up to 25 local variables
+max-locals=25
+
+[MESSAGES CONTROL]
+disable=too-many-positional-arguments

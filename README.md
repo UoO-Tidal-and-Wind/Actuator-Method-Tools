@@ -1,5 +1,8 @@
 # Actuator-Post-Processing
 Python package and scripts to be used with the actuator method output files.
+<p align="center">
+  ![Pylint Status](https://img.shields.io/github/workflow/status/<owner>/<repo>/Pylint?label=Pylint&logo=github)
+</p>
 
 ## Installation
 Source the bashrc and add the bin directory to the path using 
