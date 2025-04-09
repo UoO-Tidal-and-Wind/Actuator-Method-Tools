@@ -27,6 +27,7 @@ Example:
 """
 
 
+from typing import Union, Sequence
 import logging
 from pathlib import Path
 import re
@@ -35,6 +36,7 @@ import numpy as np
 # Configure logging
 logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class ProbeFile:
     """
@@ -149,17 +151,84 @@ class ProbeFile:
             # Split by 16 spaces and load the data manually
             with open(self.path, "r", encoding='utf-8') as file:
                 # Skip header lines
-                data_lines = [line for line in file if not line.startswith("#")]
+                data_lines = [
+                    line for line in file if not line.startswith("#")]
 
             # Apply regex to split by 16 spaces for each line
-            data = np.array([re.split(r" {16}", line.strip()) for line in data_lines])
+            data = np.array(
+                [re.split(r" {16}", line.strip()) for line in data_lines])
 
-        self.time = data[:, 0]
+        self.time = np.array(data[:, 0], dtype=float)
         self.data = data[:, 1:]
 
         if file_type == "vector/tensor":
             # Initialize the data structure as a list of lists (2D structure)
             self.data = np.array([
-                [np.array(x.strip("()").split(" "), dtype=np.float64) for x in row]
+                [np.array(x.strip("()").split(" "), dtype=float)
+                 for x in row]
                 for row in self.data
             ])
+
+    def get_probe_data_by_probe_index(self, probe_index: Union[int, Sequence[int]]) -> np.ndarray:
+        """
+        Get the data for a specified probe or probes.
+
+        Args:
+            probe_index (int or list of int): Index or indices of the specified probe(s).
+
+        Returns:
+            np.ndarray: Probe data of the specified probe(s).
+        """
+        return self.data[:, probe_index]
+
+    def crop_data_by_probe_index(self, probe_index: Union[int, Sequence[int]]):
+        """
+        Crops the data to contain only the specified probe index or indices.
+
+        Args:
+            probe_index (int or list of int): Index or indices of probe(s) to crop to.
+        """
+        if isinstance(probe_index, int):
+            probe_index = [probe_index]
+
+        self.data = self.data[:, probe_index]
+        self.x = self.x[probe_index]
+        self.y = self.y[probe_index]
+        self.z = self.z[probe_index]
+
+    def crop_by_time(self, lower_limit: float = -1E10, upper_limit: float = 1E10):
+        """
+        Crops probe data and time array to be within the lower and upper limits.
+
+        Args:
+            lower_limit (float, optional): Lower limit for cropping. Defaults to -1E10.
+            upper_limit (float, optional): Upper limit for cropping. Defaults to 1E10.
+        """
+        mask = (self.time > lower_limit) & (self.time < upper_limit)
+
+        self.data = self.data[mask]
+        self.time = self.time[mask]
+
+    def get_data_by_component(self, component_index: Union[int, Sequence[int]]) -> np.ndarray:
+        """
+        Returns the data array with only the specified components
+
+        Args:
+            component_index (Union[int, Sequence[int]]): Component indicies to return.
+
+        Returns:
+            np.ndarray: Data array containing only the provided components.
+        """
+        return self.data[:, :, component_index]
+
+    def crop_by_component_index(self, component_index: Union[int, Sequence[int]]):
+        """
+        Crops data array by component indicies.
+
+        Args:
+            component_index (Union[int, Sequence[int]]): Indicies to crop to.
+        """
+        if isinstance(component_index, int):
+            component_index = [component_index]
+
+        self.data = self.data[:, :, component_index]
