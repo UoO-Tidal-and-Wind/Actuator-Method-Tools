@@ -37,6 +37,37 @@ logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
+class BladeData:
+    def __init__(self):
+        self.number_of_blades = 0
+        self.time = np.array([])
+        self.blade_tip_positions = np.array([])
+        self.blade_root_positions = np.array([])
+        self.blade_station_chord = np.array([])
+        self.blade_station_radius = np.array([])
+
+    def read_data_from_case(self, case_path: str):
+        case_reader = CaseReader(case_path)
+
+        # first read in the data
+        radius_data = case_reader.turbine_output("radiusC")
+        chord_data = case_reader.turbine_output("chordC")
+        blade_tip_data = case_reader.turbine_output("bladeTipPosition")
+        blade_root_data = case_reader.turbine_output("bladeRootPosition")
+
+        # now fill out the member variables
+        # (for now assume there are three blades and the radius
+        # file only contains information at time 0)
+        self.number_of_blades = len(np.unique(radius_data.blade))
+        self.blade_station_radius = radius_data.data
+        self.blade_station_chord = chord_data.data
+        self.time = np.unique(blade_tip_data.time)
+        self.blade_tip_positions = np.array(
+            [blade_tip_data.get_using_blade_index(i) for i in range(self.number_of_blades)])
+        self.blade_root_positions = np.array(
+            [blade_root_data.get_using_blade_index(i) for i in range(self.number_of_blades)])
+
+
 class CaseReader:
     """
     Class used to read in data from a case directory.
@@ -220,3 +251,8 @@ class CaseReader:
         file_reader = ProbeFile(file_path)
         file_reader.read()
         return file_reader
+    
+    def get_blade_data(self) -> BladeData:
+        blade_data = BladeData()
+        blade_data.read_data_from_case(self.path)
+

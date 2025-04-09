@@ -26,6 +26,7 @@ Example:
 
 """
 
+from typing import Union, Sequence
 import logging
 from pathlib import Path
 import pandas as pd
@@ -34,6 +35,7 @@ import numpy as np
 # Configure logging
 logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class TurbineOutputFile:
     """
@@ -67,7 +69,6 @@ class TurbineOutputFile:
         self.time: np.ndarray = np.array([])
         self.dt: np.ndarray = np.array([])
         self.data: np.ndarray = np.array([])
-
 
     def read(self):
         """
@@ -128,7 +129,7 @@ class TurbineOutputFile:
             logging.error("File '%s' not found.", self.path)
             raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
-    def crop_time(self, lower_limit: float=-1E-10, upper_limit: float=1E10):
+    def crop_time(self, lower_limit: float = -1E-10, upper_limit: float = 1E10):
         """
         Filters data based on the time range between `lower_limit` and `upper_limit`.
 
@@ -136,7 +137,7 @@ class TurbineOutputFile:
         ----------
         lower_limit : float, optional
             The minimum time value to include (default is -1E-10).
-        
+
         upper_limit : float, optional
             The maximum time value to include (default is 1E10).
 
@@ -193,3 +194,19 @@ class TurbineOutputFile:
         self.time = self.time[mask]
         self.blade = self.blade[mask]
         self.turbine = self.turbine[mask]
+
+    def get_using_blade_index(self, blade_index: Union[int, Sequence[int]]) -> np.ndarray:
+        """
+        Returns the data masked using the provided blade indicies.
+
+        Args:
+            blade_index (Union[int, Sequence[int]]): Indicies used to mask the data.
+
+        Returns:
+            np.ndarray: Masked data.
+        """
+        if isinstance(blade_index, (int, np.integer)):
+            blade_index = [blade_index]
+
+        mask = [(blade_ind in blade_index) for blade_ind in self.blade]
+        return self.data[mask]
