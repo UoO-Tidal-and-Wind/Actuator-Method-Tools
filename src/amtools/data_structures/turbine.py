@@ -18,8 +18,12 @@ Classes:
 
 """
 
+import logging
 import numpy as np
 from ..input_output.case_reader import CaseReader
+logging.basicConfig(
+    level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class BladeData:
@@ -74,7 +78,10 @@ class BladeData:
 
         # first read in the data
         radius_data = case_reader.turbine_output("radiusC")
-        chord_data = case_reader.turbine_output("chordC")
+        try:
+            chord_data = case_reader.turbine_output("chordC")
+        except FileNotFoundError as e:
+            logging.warning("Error occurred while calling turbine_output: %s",e)
         blade_tip_data = case_reader.turbine_output("bladeTipPosition")
         blade_root_data = case_reader.turbine_output("bladeRootPosition")
 
