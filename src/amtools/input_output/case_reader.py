@@ -2,7 +2,7 @@
 case_reader
 ===========
 
-This module defines the `CaseReader` class, which provides functionality for reading and 
+This module defines the `CaseReader` class, which provides functionality for reading and
 handling case directories related to turbine output and post-processing results.
 
 The `CaseReader` class facilitates the following:
@@ -10,10 +10,10 @@ The `CaseReader` class facilitates the following:
 - Retrieving post-processing probe data.
 - Navigating through time directories based on specific criteria (latest, first, exactly, closest
     to).
-  
+
 Classes:
     CaseReader: Handles access to turbine output and post-processing data from a case directory.
-    
+
 Example:
     Example usage of the `CaseReader` class:
 
@@ -33,46 +33,16 @@ from .turbine_output.turbine_output_file import TurbineOutputFile
 from .post_processing.probe_file import ProbeFile
 
 # Configure logging
-logging.basicConfig(level=logging.WARNING,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-
-
-class BladeData:
-    def __init__(self):
-        self.number_of_blades = 0
-        self.time = np.array([])
-        self.blade_tip_positions = np.array([])
-        self.blade_root_positions = np.array([])
-        self.blade_station_chord = np.array([])
-        self.blade_station_radius = np.array([])
-
-    def read_data_from_case(self, case_path: str):
-        case_reader = CaseReader(case_path)
-
-        # first read in the data
-        radius_data = case_reader.turbine_output("radiusC")
-        chord_data = case_reader.turbine_output("chordC")
-        blade_tip_data = case_reader.turbine_output("bladeTipPosition")
-        blade_root_data = case_reader.turbine_output("bladeRootPosition")
-
-        # now fill out the member variables
-        # (for now assume there are three blades and the radius
-        # file only contains information at time 0)
-        self.number_of_blades = len(np.unique(radius_data.blade))
-        self.blade_station_radius = radius_data.data
-        self.blade_station_chord = chord_data.data
-        self.time = np.unique(blade_tip_data.time)
-        self.blade_tip_positions = np.array(
-            [blade_tip_data.get_using_blade_index(i) for i in range(self.number_of_blades)])
-        self.blade_root_positions = np.array(
-            [blade_root_data.get_using_blade_index(i) for i in range(self.number_of_blades)])
+logging.basicConfig(
+    level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class CaseReader:
     """
     Class used to read in data from a case directory.
 
-    This class manages paths related to turbine output and post-processing 
+    This class manages paths related to turbine output and post-processing
     within the specified case directory.
     """
 
@@ -89,8 +59,7 @@ class CaseReader:
         self.path: Path = Path(root_path)  # Convert to Path object
         if not self.path.exists():
             logging.warning("The '%s' directory is missing.", self.path)
-            raise FileNotFoundError(
-                f"The directory '{root_path}' does not exist.")
+            raise FileNotFoundError(f"The directory '{root_path}' does not exist.")
 
         self.name: str = self.path.name  # Direct access to the name of the path
         self.turbine_output_path: Path = self.path / "turbineOutput"
@@ -99,11 +68,13 @@ class CaseReader:
 
         if not self.turbine_output_path.exists():
             logging.warning(
-                "The 'turbineOutput' directory is missing in '%s'.", self.path)
+                "The 'turbineOutput' directory is missing in '%s'.", self.path
+            )
 
         if not self.post_processing_path.exists():
             logging.warning(
-                "The 'postProcessing' directory is missing in '%s'.", self.path)
+                "The 'postProcessing' directory is missing in '%s'.", self.path
+            )
 
     def set_path(self, root_path: str):
         """
@@ -114,16 +85,18 @@ class CaseReader:
         """
         self.path = Path(root_path)
 
-    def turbine_output(self,
-                    file_name: str,
-                    time_dir: Literal["latest", "first", "exactly", "closest to"] = "latest",
-                    time_dir_value: str = ""):
+    def turbine_output(
+        self,
+        file_name: str,
+        time_dir: Literal["latest", "first", "exactly", "closest to"] = "latest",
+        time_dir_value: str = "",
+    ):
         """
         Retrieves turbine output data from the case directory.
 
         Args:
             file_name (str): Name of the turbine output file.
-            time_dir (Literal["latest", "first", "exactly", "closest to"], optional): 
+            time_dir (Literal["latest", "first", "exactly", "closest to"], optional):
                 Determines which time directory to select.
                 - "latest": Uses the latest available time.
                 - "first": Uses the earliest available time.
@@ -137,7 +110,7 @@ class CaseReader:
             TurbineOutputFile: An instance of the TurbineOutputFile class after reading the file.
 
         Raises:
-            ValueError: If `time_dir` is "exactly" or "closest to" but `time_dir_value` 
+            ValueError: If `time_dir` is "exactly" or "closest to" but `time_dir_value`
             is not provided.
         """
         # Find all the possible time directories
@@ -153,12 +126,14 @@ class CaseReader:
         elif time_dir == "exactly":
             if not time_dir_value:
                 raise ValueError(
-                    "time_dir_value must be provided when using 'exactly'.")
+                    "time_dir_value must be provided when using 'exactly'."
+                )
             self.turbine_output_time_dir = time_dir_value
         elif time_dir == "closest to":
             if not time_dir_value:
                 raise ValueError(
-                    "time_dir_value must be provided when using 'closest to'.")
+                    "time_dir_value must be provided when using 'closest to'."
+                )
             time_dirs_float = [float(f) for f in time_dirs]
             index = np.argmin(np.abs(time_dirs_float - float(time_dir_value)))
             self.turbine_output_time_dir = time_dirs[index]
@@ -167,19 +142,19 @@ class CaseReader:
 
         if not file_path.exists():
             logging.warning("The '%s' file is missing.", file_path)
-            raise FileNotFoundError(
-                f"The file '{file_path}' does not exist.")
-
+            raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
         file_reader = TurbineOutputFile(file_path)
         file_reader.read()
         return file_reader
 
-    def probe(self,
-            probe_name: str,
-            variable_name: str,
-            time_dir: Literal["latest", "first", "exactly", "closest to"] = "latest",
-            time_dir_value: str = ""):
+    def probe(
+        self,
+        probe_name: str,
+        variable_name: str,
+        time_dir: Literal["latest", "first", "exactly", "closest to"] = "latest",
+        time_dir_value: str = "",
+    ):
         """
         Locate and load a probe file for a given variable from a specified time directory.
 
@@ -216,8 +191,7 @@ class CaseReader:
 
         if not probe_path.exists():
             logging.warning("The '%s' path is missing.", probe_path)
-            raise FileNotFoundError(
-                f"The path '{probe_path}' does not exist.")
+            raise FileNotFoundError(f"The path '{probe_path}' does not exist.")
 
         time_dirs = [f.name for f in probe_path.iterdir()]
         if time_dir == "latest":
@@ -231,12 +205,14 @@ class CaseReader:
         elif time_dir == "exactly":
             if not time_dir_value:
                 raise ValueError(
-                    "time_dir_value must be provided when using 'exactly'.")
+                    "time_dir_value must be provided when using 'exactly'."
+                )
             self.turbine_output_time_dir = time_dir_value
         elif time_dir == "closest to":
             if not time_dir_value:
                 raise ValueError(
-                    "time_dir_value must be provided when using 'closest to'.")
+                    "time_dir_value must be provided when using 'closest to'."
+                )
             time_dirs_float = [float(f) for f in time_dirs]
             index = np.argmin(np.abs(time_dirs_float - float(time_dir_value)))
             self.turbine_output_time_dir = time_dirs[index]
@@ -245,14 +221,8 @@ class CaseReader:
 
         if not file_path.exists():
             logging.warning("The '%s' file is missing.", file_path)
-            raise FileNotFoundError(
-                f"The file '{file_path}' does not exist.")
+            raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
         file_reader = ProbeFile(file_path)
         file_reader.read()
         return file_reader
-    
-    def get_blade_data(self) -> BladeData:
-        blade_data = BladeData()
-        blade_data.read_data_from_case(self.path)
-

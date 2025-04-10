@@ -6,7 +6,8 @@ load-plugins=
 # Allow functions to have up to 10 arguments
 max-args=10
 # Allow functions to have up to 25 local variables
-max-locals=25
+max-locals=50
 
 [MESSAGES CONTROL]
-disable=too-many-positional-arguments
+disable=too-many-positional-arguments,too-few-public-methods
+
