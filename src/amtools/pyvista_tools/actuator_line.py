@@ -170,7 +170,7 @@ def create_blade_point_vtps(
             multiblock.save(file_name)
 
         pvd_path = pathlib.Path(output_path).joinpath(f"blade{blade_ind}.pvd")
-        write_pvd(filenames=file_names, times=time_arr, output_path=pvd_path)
+        write_pvd(filenames=file_names, times=time_arr[frame_time_inds], output_path=pvd_path)
 
 
 def create_rotor_geometry_vtps(
@@ -234,4 +234,4 @@ def create_rotor_geometry_vtps(
             multiblock.save(file_name)
 
         pvd_path = pathlib.Path(output_path).joinpath(f"{name}.pvd")
-        write_pvd(filenames=file_names, times=time_arr, output_path=pvd_path)
+        write_pvd(filenames=file_names, times=time_arr[frame_time_inds], output_path=pvd_path)
