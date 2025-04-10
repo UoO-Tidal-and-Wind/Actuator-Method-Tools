@@ -220,7 +220,7 @@ def create_rotor_geometry_vtps(
 
     features = [rotor_apex_dict, base_location_dict, tower_shaft_intersect_dict]
 
-    for _, feature in features:
+    for feature in features:
         name = feature["name"]
         data = feature["data"]
         file_names = []
