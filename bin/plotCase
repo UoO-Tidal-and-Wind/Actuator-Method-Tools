@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+
+import argparse
+import amtools.input_output
+import numpy as np
+import matplotlib.pyplot as plt
+import amtools
+import pathlib
+
+
+def plot_scalar_value_against_time(case_reader: amtools.input_output.CaseReader, keys, labels, units, save_path: pathlib.Path, time_series_limits):
+    fig, ax = plt.subplots()
+    file_name = ""
+
+    for key, label, unit in zip(keys, labels, units):
+        data = case_reader.turbine_output(key)
+        data.crop_time(
+            lower_limit=time_series_limits[0], upper_limit=time_series_limits[1])
+        ax.plot(data.time, data.data, label=label + f" [{unit}]")
+        if file_name == "":
+            file_name = key
+        else:
+            file_name = file_name + "_" + key
+
+    ax.legend()
+    ax.set_xlabel(r"$t$ [s]")
+    file_name = file_name + ".png"
+
+    fig.tight_layout()
+    fig.savefig(save_path.joinpath(file_name))
+
+
+def plot_blade_distribution_against_time(case_reader: amtools.input_output.CaseReader, keys, labels, units, save_path: pathlib.Path, time_series_limits):
+    fig, ax = plt.subplots()
+    file_name = ""
+
+    radius_data = case_reader.turbine_output("radiusC")
+
+    # assume symmetric blades
+    radius = radius_data.data[0,:]
+    print(radius)
+
+
+def main(args):
+    # read in the arguments
+    show = args.show
+    time_series_limits = args.timeSeriesLimits
+    plot_time_targets = args.plotTimeTargets
+    save_path = args.outPath
+    dir = args.dir
+
+    if dir == None:
+        dir = pathlib.Path(".").resolve()
+
+    if save_path == None:
+        save_path = dir.joinpath("caseFigures")
+        if not save_path.exists():
+            save_path.mkdir(parents=True)
+
+    # create case reader
+    case_reader = amtools.input_output.CaseReader(dir)
+
+    # begin with integrated values
+    keys = ["thrust", "torqueRotor", "powerRotor"]
+    labels = [r"T", r"Q", r"P"]
+    units = ["N", "Q", "W"]
+
+    for key, label, unit in zip(keys, labels, units):
+        plot_scalar_value_against_time(case_reader=case_reader, keys=[key], labels=[label], units=[
+            unit], save_path=save_path, time_series_limits=time_series_limits)
+
+    # rotational DOFs
+    keys = ["roll", "pitch", "yaw"]
+    labels = [r"$\theta_{\text{roll}}$",
+              r"$\theta_{\text{pitch}}$", r"$\theta_{\text{yaw}}$"]
+    units = [r"$^\circ$", r"$^\circ$", r"$^\circ$"]
+    plot_scalar_value_against_time(case_reader=case_reader, keys=keys,
+                                   labels=labels, units=units, save_path=save_path, time_series_limits=time_series_limits)
+
+    # translational DOFs
+    keys = ["surge", "sway", "heave"]
+    labels = [r"$x_{\text{surge}}$",
+              r"$x_{\text{sway}}$", r"$x_{\text{heave}}$"]
+    units = [r"m", r"m", r"m"]
+    plot_scalar_value_against_time(case_reader=case_reader, keys=keys,
+                                   labels=labels, units=units,  save_path=save_path, time_series_limits=time_series_limits)
+
+    plot_blade_distribution_against_time(
+        case_reader=case_reader, keys=keys, labels=labels, units = units, save_path=save_path, time_series_limits=time_series_limits)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Process command-line arguments for a script."
+    )
+
+    parser.add_argument(
+        "-s", "--show", action="store_true", help="Show the plots (default: False)"
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Run the script in quiet mode (default: False)",
+    )
+    parser.add_argument(
+        "-tLims",
+        "--timeSeriesLimits",
+        type=float,
+        nargs='+',
+        default=[0, 1E10],
+        help="Set the time limits for time series analysis (format: START STOP) (default: [0 1E10])",
+    )
+    parser.add_argument(
+        "-d",
+        "--dir",
+        type=str,
+        default=None,
+        help="Set the working directory (default: current working directory)",
+    )
+    parser.add_argument(
+        "-o",
+        "--outPath",
+        type=str,
+        default=None,
+        help="Set the output directory (default: caseFigures in the current working directory)",
+    )
+    parser.add_argument(
+        "-tTargets",
+        "--plotTimeTargets",
+        type=float,
+        nargs='+',
+        default=[],
+        help="Sets the target analysis times for the instantaneous analysis (format: TARGET0 TARGET1 ...) (default: [])",
+    )
+
+    args = parser.parse_args()
+
+    if len(args.timeSeriesLimits) != 2:
+        raise argparse.ArgumentTypeError(
+            "Length of timeSeriesLimits must be 2.")
+
+    main(args)
