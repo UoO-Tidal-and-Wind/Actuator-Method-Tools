@@ -88,7 +88,9 @@ class CaseReader:
     def turbine_output(
         self,
         file_name: str,
-        time_dir: Literal["latest", "first", "exactly", "closest to"] = "latest",
+        time_dir: Literal[
+            "latest", "first", "exactly", "closest to", "combined"
+        ] = "latest",
         time_dir_value: str = "",
     ):
         """
@@ -102,6 +104,7 @@ class CaseReader:
                 - "first": Uses the earliest available time.
                 - "exactly": Uses the time specified in `time_dir_value`.
                 - "closest to": Finds the closest available time to `time_dir_value`.
+                - "combine": Attempts to combine time directories together.
                 Defaults to "latest".
             time_dir_value (str, optional): Required if `time_dir` is "exactly" or "closest to".
                 Specifies the exact or target time value.
@@ -113,6 +116,12 @@ class CaseReader:
             ValueError: If `time_dir` is "exactly" or "closest to" but `time_dir_value`
             is not provided.
         """
+        combine_files = False
+        if time_dir == "combine":
+            # read in the the first time directory to then combine with others later
+            time_dir = "first"
+            combine_files = True
+
         # Find all the possible time directories
         time_dirs = [f.name for f in self.turbine_output_path.iterdir()]
         if time_dir == "latest":
@@ -146,13 +155,60 @@ class CaseReader:
 
         file_reader = TurbineOutputFile(file_path)
         file_reader.read()
+
+        if combine_files:
+            time_dirs_to_combine = time_dirs.copy()
+            time_dirs_to_combine.remove(
+                self.turbine_output_time_dir
+            )  # remove current time dir
+
+            if len(time_dirs_to_combine) != 0:
+                # sort the time dirs by numerical value
+                def convert_to_float(item):
+                    return float(item)
+
+                time_dirs_to_combine.sort(key=convert_to_float)
+
+                for new_time_dir in time_dirs_to_combine:
+                    new_file_path = self.turbine_output_path / new_time_dir / file_name
+                    new_file_reader = TurbineOutputFile(new_file_path)
+                    new_file_reader.read()
+
+                    current_max_time = file_reader.time.max()
+                    new_min_time = new_file_reader.time.min()
+
+                    if new_min_time > current_max_time:
+                        break  # only combine files that have some overlap in time
+
+                    # crop the new file
+                    new_file_reader.crop_time(lower_limit=current_max_time)
+
+                    # now concatenate the data together
+                    file_reader.data = np.concatenate(
+                        (file_reader.data, new_file_reader.data)
+                    )
+                    file_reader.dt = np.concatenate(
+                        (file_reader.dt, new_file_reader.dt)
+                    )
+                    file_reader.time = np.concatenate(
+                        (file_reader.time, new_file_reader.time)
+                    )
+                    file_reader.blade = np.concatenate(
+                        (file_reader.blade, new_file_reader.blade)
+                    )
+                    file_reader.turbine = np.concatenate(
+                        (file_reader.turbine, new_file_reader.turbine)
+                    )
+
         return file_reader
 
     def probe(
         self,
         probe_name: str,
         variable_name: str,
-        time_dir: Literal["latest", "first", "exactly", "closest to"] = "latest",
+        time_dir: Literal[
+            "latest", "first", "exactly", "closest to", "combined"
+        ] = "latest",
         time_dir_value: str = "",
     ):
         """
@@ -170,6 +226,7 @@ class CaseReader:
             - "first": use the lowest time value
             - "exactly": use the directory that exactly matches `time_dir_value`
             - "closest to": use the directory closest to `time_dir_value`
+            - "combine": Attempts to combined time directories together.
         time_dir_value : str, optional
             Required if `time_dir` is "exactly" or "closest to". Should be a string representation
             of a floating-point time (e.g., "12.5").
@@ -192,6 +249,12 @@ class CaseReader:
         if not probe_path.exists():
             logging.warning("The '%s' path is missing.", probe_path)
             raise FileNotFoundError(f"The path '{probe_path}' does not exist.")
+
+        combine_files = False
+        if time_dir == "combine":
+            # read in the first time directory to then combine with others later
+            time_dir = "first"
+            combine_files = True
 
         time_dirs = [f.name for f in probe_path.iterdir()]
         if time_dir == "latest":
@@ -225,4 +288,41 @@ class CaseReader:
 
         file_reader = ProbeFile(file_path)
         file_reader.read()
+
+        if combine_files:
+            time_dirs_to_combine = time_dirs.copy()
+            time_dirs_to_combine.remove(self.turbine_output_time_dir)
+
+            if len(time_dirs_to_combine) != 0:
+                # sort the time dirs by numerical value
+                def convert_to_float(item):
+                    return float(item)
+
+                time_dirs_to_combine.sort(key=convert_to_float)
+
+                for new_time_dir in time_dirs_to_combine:
+                    new_file_path = probe_path / new_time_dir / variable_name
+                    new_file_reader = ProbeFile(new_file_path)
+                    new_file_reader.read()
+
+                    current_max_time = file_reader.time.max()
+                    new_min_time = new_file_reader.time.min()
+
+                    if new_min_time > current_max_time:
+                        break  # only combine files that have some overlap in time
+
+                    # crop the new file
+                    new_file_reader.crop_by_time(lower_limit=current_max_time)
+
+                    # now concatenate the data together
+                    file_reader.data = np.concatenate(
+                        (file_reader.data, new_file_reader.data)
+                    )
+                    file_reader.time = np.concatenate(
+                        (file_reader.time, new_file_reader.time)
+                    )
+                    file_reader.x = np.concatenate((file_reader.x, new_file_reader.x))
+                    file_reader.y = np.concatenate((file_reader.y, new_file_reader.y))
+                    file_reader.z = np.concatenate((file_reader.z, new_file_reader.z))
+
         return file_reader
