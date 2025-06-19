@@ -146,7 +146,7 @@ class ProbeFile:
         data = np.array([])
         # Use regular expressions to split the data lines
         if file_type == "scalar":
-            data = np.loadtxt(self.path, comments="#", delimiter=delimiter)
+            data = np.loadtxt(self.path, comments="#")
         elif file_type == "vector/tensor":
             # Split by 16 spaces and load the data manually
             with open(self.path, "r", encoding='utf-8') as file:
