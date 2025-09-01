@@ -117,7 +117,7 @@ class CaseReader:
             is not provided.
         """
         combine_files = False
-        if time_dir == "combine":
+        if time_dir == "combined":
             # read in the the first time directory to then combine with others later
             time_dir = "first"
             combine_files = True
@@ -177,8 +177,8 @@ class CaseReader:
                     current_max_time = file_reader.time.max()
                     new_min_time = new_file_reader.time.min()
 
-                    if new_min_time > current_max_time:
-                        break  # only combine files that have some overlap in time
+                    # if new_min_time > current_max_time:
+                    #     break  # only combine files that have some overlap in time
 
                     # crop the new file
                     new_file_reader.crop_time(lower_limit=current_max_time)
@@ -226,7 +226,7 @@ class CaseReader:
             - "first": use the lowest time value
             - "exactly": use the directory that exactly matches `time_dir_value`
             - "closest to": use the directory closest to `time_dir_value`
-            - "combine": Attempts to combined time directories together.
+            - "combined": Attempts to combined time directories together.
         time_dir_value : str, optional
             Required if `time_dir` is "exactly" or "closest to". Should be a string representation
             of a floating-point time (e.g., "12.5").
@@ -251,7 +251,7 @@ class CaseReader:
             raise FileNotFoundError(f"The path '{probe_path}' does not exist.")
 
         combine_files = False
-        if time_dir == "combine":
+        if time_dir == "combined":
             # read in the first time directory to then combine with others later
             time_dir = "first"
             combine_files = True
@@ -308,8 +308,8 @@ class CaseReader:
                     current_max_time = file_reader.time.max()
                     new_min_time = new_file_reader.time.min()
 
-                    if new_min_time > current_max_time:
-                        break  # only combine files that have some overlap in time
+                    # if new_min_time > current_max_time:
+                    #     break  # only combine files that have some overlap in time
 
                     # crop the new file
                     new_file_reader.crop_by_time(lower_limit=current_max_time)

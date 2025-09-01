@@ -4,8 +4,8 @@ _probe_file
 
 Defines the `ProbeFile` class.
 
-This module provides a class for representing and processing OpenFOAM-style probe 
-data files. The class can load a probe output file, parse probe coordinates, 
+This module provides a class for representing and processing OpenFOAM-style probe
+data files. The class can load a probe output file, parse probe coordinates,
 read scalar or vector/tensor time-series data, and store the data for further analysis.
 
 Attributes:
@@ -26,7 +26,6 @@ Example:
     ```
 """
 
-
 from typing import Union, Sequence
 import logging
 from pathlib import Path
@@ -34,8 +33,9 @@ import re
 import numpy as np
 
 # Configure logging
-logging.basicConfig(level=logging.WARNING,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class ProbeFile:
@@ -114,11 +114,11 @@ class ProbeFile:
         z_coords = []
 
         # Read file efficiently
-        with open(self.path, "r", encoding='utf-8') as file:
+        with open(self.path, "r", encoding="utf-8") as file:
             lines = file.readlines()
 
         # Find delimiter and file type in a single pass
-        delimiter = None
+        # delimiter = None
         file_type = None
         for line in lines:
             if line.startswith("#"):
@@ -132,10 +132,10 @@ class ProbeFile:
                     z_coords.append(float(match.group(4)))
             else:
                 if "(" not in line:
-                    delimiter = r"\s+"  # Handle spaces or tabs
+                    # delimiter = r"\s+"  # Handle spaces or tabs
                     file_type = "scalar"
                 else:
-                    delimiter = r" {16}"  # Expect exactly 16 spaces
+                    # delimiter = r" {16}"  # Expect exactly 16 spaces
                     file_type = "vector/tensor"
                 break  # No need to process further lines
 
@@ -149,27 +149,28 @@ class ProbeFile:
             data = np.loadtxt(self.path, comments="#")
         elif file_type == "vector/tensor":
             # Split by 16 spaces and load the data manually
-            with open(self.path, "r", encoding='utf-8') as file:
+            with open(self.path, "r", encoding="utf-8") as file:
                 # Skip header lines
-                data_lines = [
-                    line for line in file if not line.startswith("#")]
+                data_lines = [line for line in file if not line.startswith("#")]
 
             # Apply regex to split by 16 spaces for each line
-            data = np.array(
-                [re.split(r" {16}", line.strip()) for line in data_lines])
+            data = np.array([re.split(r" {16}", line.strip()) for line in data_lines])
 
         self.time = np.array(data[:, 0], dtype=float)
         self.data = data[:, 1:]
 
         if file_type == "vector/tensor":
             # Initialize the data structure as a list of lists (2D structure)
-            self.data = np.array([
-                [np.array(x.strip("()").split(" "), dtype=float)
-                 for x in row]
-                for row in self.data
-            ])
+            self.data = np.array(
+                [
+                    [np.array(x.strip("()").split(" "), dtype=float) for x in row]
+                    for row in self.data
+                ]
+            )
 
-    def get_probe_data_by_probe_index(self, probe_index: Union[int, Sequence[int]]) -> np.ndarray:
+    def get_probe_data_by_probe_index(
+        self, probe_index: Union[int, Sequence[int]]
+    ) -> np.ndarray:
         """
         Get the data for a specified probe or probes.
 
@@ -196,7 +197,7 @@ class ProbeFile:
         self.y = self.y[probe_index]
         self.z = self.z[probe_index]
 
-    def crop_by_time(self, lower_limit: float = -1E10, upper_limit: float = 1E10):
+    def crop_by_time(self, lower_limit: float = -1e10, upper_limit: float = 1e10):
         """
         Crops probe data and time array to be within the lower and upper limits.
 
@@ -209,7 +210,9 @@ class ProbeFile:
         self.data = self.data[mask]
         self.time = self.time[mask]
 
-    def get_data_by_component(self, component_index: Union[int, Sequence[int]]) -> np.ndarray:
+    def get_data_by_component(
+        self, component_index: Union[int, Sequence[int]]
+    ) -> np.ndarray:
         """
         Returns the data array with only the specified components
 
@@ -232,3 +235,17 @@ class ProbeFile:
             component_index = [component_index]
 
         self.data = self.data[:, :, component_index]
+        
+        
+    def find_nearest_probe(self, x: float, y: float, z: float) -> int:
+        """
+        Returns probe index of probe nearest to the specified coordinates.
+
+        Args:
+            x (float): X-coordinate of the target location.
+            y (float): Y-coordinate of the target location.
+            z (float): Z-coordinate of the target location.
+        """
+        
+        distances = np.sqrt((self.x - x) ** 2 + (self.y - y) ** 2 + (self.z - z) ** 2)
+        return int(np.argmin(distances))
