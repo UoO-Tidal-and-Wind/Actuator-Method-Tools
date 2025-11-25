@@ -32,6 +32,7 @@ import numpy as np
 from .turbine_output.turbine_output_file import TurbineOutputFile
 from .post_processing.probe_file import ProbeFile
 from .post_processing.surface_files import SurfaceFiles
+from .post_processing.force_file import ForceFile
 
 # Configure logging
 logging.basicConfig(
@@ -334,3 +335,127 @@ class CaseReader:
             raise FileNotFoundError(f"The path '{self.post_processing_path / surfaces_name}' does not exist.")
         surface_files = SurfaceFiles(self.post_processing_path / surfaces_name)
         return surface_files
+    
+    def force(
+        self,
+        force_name: str,
+        time_dir: Literal[
+            "latest", "first", "exactly", "closest to", "combined"
+        ] = "latest",
+        time_dir_value: str = "",
+    ):
+        """
+        Locate and load a probe file for a given variable from a specified time directory.
+
+        Parameters
+        ----------
+        probe_name : str
+            Name of the probe directory within the post-processing output.
+        variable_name : str
+            Name of the variable to load (e.g., 'U', 'p').
+        time_dir : Literal["latest", "first", "exactly", "closest to"], optional
+            Strategy for selecting the time directory:
+            - "latest": use the highest time value (default)
+            - "first": use the lowest time value
+            - "exactly": use the directory that exactly matches `time_dir_value`
+            - "closest to": use the directory closest to `time_dir_value`
+            - "combined": Attempts to combined time directories together.
+        time_dir_value : str, optional
+            Required if `time_dir` is "exactly" or "closest to". Should be a string representation
+            of a floating-point time (e.g., "12.5").
+
+        Returns
+        -------
+        ForceFile
+            A `ForceFile` object containing the data read from the selected file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the specified probe directory or variable file does not exist.
+        ValueError
+            If `time_dir_value` is not provided when required.
+        """
+
+        force_path = self.post_processing_path / force_name
+
+        if not force_path.exists():
+            logging.warning("The '%s' path is missing.", force_path)
+            raise FileNotFoundError(f"The path '{force_path}' does not exist.")
+
+        combine_files = False
+        if time_dir == "combined":
+            # read in the first time directory to then combine with others later
+            time_dir = "first"
+            combine_files = True
+
+        time_dirs = [f.name for f in force_path.iterdir()]
+        if time_dir == "latest":
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmax(time_dirs_float)
+            self.turbine_output_time_dir = time_dirs[index]
+        elif time_dir == "first":
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmin(time_dirs_float)
+            self.turbine_output_time_dir = time_dirs[index]
+        elif time_dir == "exactly":
+            if not time_dir_value:
+                raise ValueError(
+                    "time_dir_value must be provided when using 'exactly'."
+                )
+            self.turbine_output_time_dir = time_dir_value
+        elif time_dir == "closest to":
+            if not time_dir_value:
+                raise ValueError(
+                    "time_dir_value must be provided when using 'closest to'."
+                )
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmin(np.abs(time_dirs_float - float(time_dir_value)))
+            self.turbine_output_time_dir = time_dirs[index]
+
+        file_path = force_path / self.turbine_output_time_dir / "force.dat"
+
+        if not file_path.exists():
+            logging.warning("The '%s' file is missing.", file_path)
+            raise FileNotFoundError(f"The file '{file_path}' does not exist.")
+
+        file_reader = ForceFile(file_path)
+        file_reader.read()
+
+        if combine_files:
+            time_dirs_to_combine = time_dirs.copy()
+            time_dirs_to_combine.remove(self.turbine_output_time_dir)
+
+            if len(time_dirs_to_combine) != 0:
+                # sort the time dirs by numerical value
+                def convert_to_float(item):
+                    return float(item)
+
+                time_dirs_to_combine.sort(key=convert_to_float)
+
+                for new_time_dir in time_dirs_to_combine:
+                    new_file_path = force_path / new_time_dir / "force.dat"
+                    new_file_reader = ForceFile(new_file_path)
+                    new_file_reader.read()
+
+                    current_max_time = file_reader.time.max()
+                    new_min_time = new_file_reader.time.min()
+
+                    # if new_min_time > current_max_time:
+                    #     break  # only combine files that have some overlap in time
+
+                    # crop the new file
+                    new_file_reader.crop_by_time(lower_limit=current_max_time)
+
+                    # now concatenate the data together
+                    file_reader.data = np.concatenate(
+                        (file_reader.data, new_file_reader.data)
+                    )
+                    file_reader.time = np.concatenate(
+                        (file_reader.time, new_file_reader.time)
+                    )
+                    
+                    file_reader.split_data()
+                    
+
+        return file_reader
