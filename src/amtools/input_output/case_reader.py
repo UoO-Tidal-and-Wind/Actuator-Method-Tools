@@ -31,6 +31,7 @@ import numpy as np
 
 from .turbine_output.turbine_output_file import TurbineOutputFile
 from .post_processing.probe_file import ProbeFile
+from .post_processing.surface_files import SurfaceFiles
 
 # Configure logging
 logging.basicConfig(
@@ -321,8 +322,15 @@ class CaseReader:
                     file_reader.time = np.concatenate(
                         (file_reader.time, new_file_reader.time)
                     )
-                    file_reader.x = np.concatenate((file_reader.x, new_file_reader.x))
-                    file_reader.y = np.concatenate((file_reader.y, new_file_reader.y))
-                    file_reader.z = np.concatenate((file_reader.z, new_file_reader.z))
+                    # file_reader.x = np.concatenate((file_reader.x, new_file_reader.x))
+                    # file_reader.y = np.concatenate((file_reader.y, new_file_reader.y))
+                    # file_reader.z = np.concatenate((file_reader.z, new_file_reader.z))
 
         return file_reader
+    
+    def surfaces(self, surfaces_name: str):
+        if not (self.post_processing_path / surfaces_name).exists():
+            logging.warning("The '%s' path is missing.", self.post_processing_path / surfaces_name)
+            raise FileNotFoundError(f"The path '{self.post_processing_path / surfaces_name}' does not exist.")
+        surface_files = SurfaceFiles(self.post_processing_path / surfaces_name)
+        return surface_files
