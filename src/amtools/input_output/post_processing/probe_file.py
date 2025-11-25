@@ -104,9 +104,15 @@ class ProbeFile:
         """
         Reads and parses the probe file.
         """
+        #probe_pattern = re.compile(
+        #    r"# Probe (\d+) \((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)"
+        #)
+
+        float_pattern = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
         probe_pattern = re.compile(
-            r"# Probe (\d+) \((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)"
+            rf"# Probe (\d+) \(({float_pattern}) ({float_pattern}) ({float_pattern})\)"
         )
+
 
         probe_indices = []
         x_coords = []
