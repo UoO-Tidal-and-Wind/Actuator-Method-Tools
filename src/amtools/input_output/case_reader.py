@@ -146,7 +146,7 @@ class CaseReader:
                     "time_dir_value must be provided when using 'closest to'."
                 )
             time_dirs_float = [float(f) for f in time_dirs]
-            index = np.argmin(np.abs(time_dirs_float - float(time_dir_value)))
+            index = np.argmin(np.abs(np.array(time_dirs_float) - float(time_dir_value)))
             self.turbine_output_time_dir = time_dirs[index]
 
         file_path = self.turbine_output_path / self.turbine_output_time_dir / file_name

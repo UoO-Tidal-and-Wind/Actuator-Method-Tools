@@ -61,6 +61,15 @@ class PhaseAverageResult:
         Returns:
             np.ndarray: Array of bin midpoints.
         """
+        return self.bin_midpoints/360
+    
+    def get_bins_in_degrees(self):
+        """
+        Returns the midpoints of the bins used for the phase averaging in degrees.
+        
+        Returns:
+            np.ndarray: Array of bin midpoints (degrees)
+        """
         return self.bin_midpoints
 
     def get_mean(self):
