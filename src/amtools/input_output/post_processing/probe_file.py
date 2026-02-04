@@ -26,6 +26,7 @@ Example:
     ```
 """
 
+from __future__ import annotations
 from typing import Union, Sequence
 import logging
 from pathlib import Path
@@ -148,6 +149,16 @@ class ProbeFile:
         self.x = np.array(x_coords, dtype=np.float64)
         self.y = np.array(y_coords, dtype=np.float64)
         self.z = np.array(z_coords, dtype=np.float64)
+        
+        pattern = re.compile(
+            r"""
+            ^\s*
+            ([+-]?\d+(?:\.\d+)?)      # time (float)
+            \s+
+            (.*)$                     # rest of the line
+            """,
+            re.VERBOSE,
+        )
 
         data = np.array([])
         # Use regular expressions to split the data lines
@@ -160,7 +171,12 @@ class ProbeFile:
                 data_lines = [line for line in file if not line.startswith("#")]
 
             # Apply regex to split by 16 spaces for each line
-            data = np.array([re.split(r" {16}", line.strip()) for line in data_lines])
+            # data = np.array([re.split(r" {16}", line.strip()) for line in data_lines])
+            data = np.array([
+                [m.group(1), *re.findall(r"\([^()]*\)", m.group(2))]
+                for line in data_lines
+                if (m := pattern.search(line))
+            ], dtype=object)
 
         self.time = np.array(data[:, 0], dtype=float)
         self.data = data[:, 1:]
@@ -255,3 +271,13 @@ class ProbeFile:
         
         distances = np.sqrt((self.x - x) ** 2 + (self.y - y) ** 2 + (self.z - z) ** 2)
         return int(np.argmin(distances))
+    
+    def append(self, other: ProbeFile):
+        if self.time.max() != other.time.max():
+            print("Times do not match")
+            raise ValueError
+        
+        self.x = np.append(self.x, other.x)
+        self.y = np.append(self.y, other.y)
+        self.z = np.append(self.z, other.z)
+        self.data = np.concatenate((self.data, other.data), axis=1)

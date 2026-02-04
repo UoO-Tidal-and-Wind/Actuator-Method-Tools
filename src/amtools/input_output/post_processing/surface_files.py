@@ -26,7 +26,7 @@ class SurfaceFiles:
     
     def read_nearest_file(self, time: float, name: str) -> pv.DataObject:
         nearest_time = min(self.times_floats, key=lambda t: abs(t - time))
-        return self.read_file(nearest_time, name)
+        return self.read_file(nearest_time, name), nearest_time
     
     def get_time_floats(self) -> np.ndarray:
         return self.times_floats

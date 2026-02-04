@@ -109,6 +109,8 @@ def phase_average_array(
     bin_center_offset: float = None,
     include_0_and_360: bool = True,
     remove_phase_offset: bool = False,
+    base: str = "iter",
+    deltaT: np.ndarray = None,
 ) -> PhaseAverageResult:
     """
     Perform phase averaging on an array of values (`y_arr`) using the corresponding time
@@ -185,7 +187,16 @@ def phase_average_array(
 
         # Create binned data
         binned_y_arr = [y_arr[bin_inds == i] for i in range(1, number_of_bins + 2)]
+        
 
+        # account for the base
+        if base == "time":
+            print("changing base to time")
+            deltaTSums = [np.sum(deltaT[bin_inds == i]) for i in range(1, number_of_bins+2)]
+            print(f"deltaTSums shape {len(deltaTSums)}")
+            tmp = y_arr * deltaT
+            binned_y_arr = [tmp[bin_inds == i]/np.sum(deltaT[bin_inds == i]) for i in range(1, number_of_bins+2)]
+    
     # Adjust the first and last bins if there is an offset
     if bin_center_offset != 0:
         binned_y_arr[-1] = np.concatenate((binned_y_arr[0], binned_y_arr[-1]))
@@ -195,9 +206,18 @@ def phase_average_array(
     phase_averaged_y_arr_std = np.array(
         [np.std(group) if len(group) > 0 else 0 for group in binned_y_arr]
     )
+    
+
     phase_averaged_y_arr = np.array(
         [np.mean(group) if len(group) > 0 else 0 for group in binned_y_arr]
     )
+
+    if base == "time":
+        phase_averaged_y_arr = np.array(
+            [np.sum(group) if len(group) > 0 else 0 for group in binned_y_arr]
+            )
+    
+    #print("made changes")
 
     # Sort bin midpoints and results
     sorted_bin_midpoints_inds = np.argsort(bin_midpoints)
