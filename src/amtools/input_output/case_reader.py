@@ -450,6 +450,9 @@ class CaseReader:
                     file_reader.time = np.concatenate(
                         (file_reader.time, new_file_reader.time)
                     )
+                    file_reader.bin = np.concatenate(
+                            (file_reader.bin, new_file_reader.bin)
+                    )
                     # file_reader.x = np.concatenate((file_reader.x, new_file_reader.x))
                     # file_reader.y = np.concatenate((file_reader.y, new_file_reader.y))
                     # file_reader.z = np.concatenate((file_reader.z, new_file_reader.z))
