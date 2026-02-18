@@ -191,16 +191,20 @@ def phase_average_array(
 
         # Create binned data
         binned_y_arr = [y_arr[bin_inds == i] for i in range(1, number_of_bins + 2)]
-        
 
         # account for the base
         if base == "time":
             print("changing base to time")
-            deltaTSums = [np.sum(deltaT[bin_inds == i]) for i in range(1, number_of_bins+2)]
+            deltaTSums = [
+                np.sum(deltaT[bin_inds == i]) for i in range(1, number_of_bins + 2)
+            ]
             print(f"deltaTSums shape {len(deltaTSums)}")
             tmp = y_arr * deltaT
-            binned_y_arr = [tmp[bin_inds == i]/np.sum(deltaT[bin_inds == i]) for i in range(1, number_of_bins+2)]
-    
+            binned_y_arr = [
+                tmp[bin_inds == i] / np.sum(deltaT[bin_inds == i])
+                for i in range(1, number_of_bins + 2)
+            ]
+
     # Adjust the first and last bins if there is an offset
     if bin_center_offset != 0:
         binned_y_arr[-1] = np.concatenate((binned_y_arr[0], binned_y_arr[-1]))
@@ -210,7 +214,6 @@ def phase_average_array(
     phase_averaged_y_arr_std = np.array(
         [np.std(group) if len(group) > 0 else 0 for group in binned_y_arr]
     )
-    
 
     phase_averaged_y_arr = np.array(
         [np.mean(group) if len(group) > 0 else 0 for group in binned_y_arr]
@@ -219,9 +222,9 @@ def phase_average_array(
     if base == "time":
         phase_averaged_y_arr = np.array(
             [np.sum(group) if len(group) > 0 else 0 for group in binned_y_arr]
-            )
-    
-    #print("made changes")
+        )
+
+    # print("made changes")
 
     # Sort bin midpoints and results
     sorted_bin_midpoints_inds = np.argsort(bin_midpoints)
@@ -353,7 +356,9 @@ def phase_average_field(
     result.bin_midpoints = np.array(bin_midpoints)
     result.phase_averaged_mean = np.array(phase_averaged_y_arr)
     result.phase_averaged_covariance = np.array(phase_averaged_covariance)
-    result.phase_averaged_std = np.sqrt(phase_averaged_covariance)
+    result.phase_averaged_std = np.sqrt(
+        np.diagonal(phase_averaged_covariance, axis1=1, axis2=2)
+    )
     result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
 
     return result
@@ -364,30 +369,33 @@ if __name__ == "__main__":
 
     t_arr = np.linspace(0, 10, 20000)
     frequency = 1.0
-    # y_arr = np.sin(t_arr * frequency * 2 * np.pi) + 0.3 * np.random.rand(len(t_arr)) - 0.15
 
     y_arr = np.array(
         (
             np.sin(t_arr * frequency * 2 * np.pi)
             + 0.3 * np.random.rand(len(t_arr))
             - 0.15,
-            np.sin(t_arr * frequency * 2 * np.pi + 0.5*np.pi)
+            np.sin(t_arr * frequency * 2 * np.pi + 0.5 * np.pi)
             + 0.1 * np.random.rand(len(t_arr))
             - 0.05,
-            np.sin(t_arr * frequency * 2 * np.pi + 1*np.pi)
+            np.sin(t_arr * frequency * 2 * np.pi + 1 * np.pi)
             + 0.2 * np.random.rand(len(t_arr))
             - 0.1,
         )
     )
     y_arr = y_arr.T
 
-
     result = phase_average_field(t_arr, y_arr, frequency=frequency)
+    print(result.get_mean().shape, result.get_variance().shape, result.get_std().shape)
 
-    plt.plot(result.get_bins(), result.get_mean())
+    plt.figure()
+    for i in range(3):
+        plt.plot(result.get_bins(), result.get_mean()[:,i], label=f"{i}")
     plt.xlim(0, 1)
-    plt.show()
+    plt.legend()
+    plt.title("Means")
 
+    plt.figure()
     var = result.get_variance()
     for i in range(3):
         for j in range(3):
@@ -395,4 +403,5 @@ if __name__ == "__main__":
 
     plt.legend()
     plt.xlim(0, 1)
+    plt.title("Covariances")
     plt.show()
