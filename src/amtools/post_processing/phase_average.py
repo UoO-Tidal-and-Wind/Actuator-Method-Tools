@@ -2,19 +2,19 @@
 Phase Averaging Module
 =======================
 
-This module contains the `PhaseAverageResult` class for storing phase-averaged results, 
+This module contains the `PhaseAverageResult` class for storing phase-averaged results,
 and the `phase_average_array` function to compute phase averages from time and value arrays.
 
-The `phase_average_array` function bins data based on calculated phase angles and computes 
-the mean and standard deviation for each bin. There are options for phase offset removal 
+The `phase_average_array` function bins data based on calculated phase angles and computes
+the mean and standard deviation for each bin. There are options for phase offset removal
 and custom binning.
 
 Classes:
-    PhaseAverageResult: Stores phase-averaged data, including mean, standard deviation, 
+    PhaseAverageResult: Stores phase-averaged data, including mean, standard deviation,
     and bin counts.
 
 Functions:
-    phase_average_array: Computes phase averages for time-series data and returns a 
+    phase_average_array: Computes phase averages for time-series data and returns a
     `PhaseAverageResult` object containing the results.
 
 Example:
@@ -26,9 +26,8 @@ Example:
     result = phase_average_array(t_arr, y_arr, frequency=1.0)
     print(result.phase_averaged_mean)
     ```
-    
-"""
 
+"""
 
 import numpy as np
 
@@ -40,7 +39,7 @@ class PhaseAverageResult:
     Attributes:
         bin_midpoints (np.ndarray): Midpoints of the bins used for phase averaging.
         phase_averaged_mean (np.ndarray): The mean of the phase averaged values for each bin.
-        phase_averaged_std (np.ndarray): The standard deviation of the phase averaged values 
+        phase_averaged_std (np.ndarray): The standard deviation of the phase averaged values
         for each bin.
         bin_counts (np.ndarray): The number of values that were assigned to each bin.
     """
@@ -52,6 +51,7 @@ class PhaseAverageResult:
         self.bin_midpoints = np.array([])
         self.phase_averaged_mean = np.array([])
         self.phase_averaged_std = np.array([])
+        self.phase_averaged_covariance = np.array([])
         self.bin_counts = np.array([])
 
     def get_bins(self):
@@ -61,12 +61,15 @@ class PhaseAverageResult:
         Returns:
             np.ndarray: Array of bin midpoints.
         """
-        return self.bin_midpoints/360
-    
+        if self.bin_midpoints.max() > 1.0:
+            return self.bin_midpoints / 360
+        else:
+            return self.bin_midpoints
+
     def get_bins_in_degrees(self):
         """
         Returns the midpoints of the bins used for the phase averaging in degrees.
-        
+
         Returns:
             np.ndarray: Array of bin midpoints (degrees)
         """
@@ -97,7 +100,7 @@ class PhaseAverageResult:
         Returns:
             np.ndarray: Array of phase averaged variances.
         """
-        return np.square(self.phase_averaged_std)
+        return self.phase_averaged_covariance
 
 
 def phase_average_array(
@@ -141,6 +144,7 @@ def phase_average_array(
         ValueError: If `bin_center_offset` is negative or greater than the allowable bin width.
     """
 
+    print("WARNING This is deprecated, USE phase_average_field instead!")
     result = PhaseAverageResult()
 
     # Calculate phase array
@@ -244,3 +248,151 @@ def phase_average_array(
     result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
 
     return result
+
+
+def phase_average_field(
+    t_arr: np.ndarray,
+    y_arr: np.ndarray,
+    frequency: float,
+    phase_offset: float = 0,
+    number_of_bins: int = 200,
+    bin_center_offset: float = None,
+    include_0_and_1: bool = True,
+) -> PhaseAverageResult:
+
+    result = PhaseAverageResult()
+
+    # Calculate phase array
+    phase_arr = (frequency * t_arr) % 1.0
+    bins = np.linspace(0, 1, number_of_bins + 1)
+    bin_midpoints = (bins[1:] + bins[0:-1]) * 0.5
+
+    if bin_center_offset is None:
+        bin_center_offset = 0.5 / number_of_bins
+
+    if bin_center_offset != 0:
+        if bin_center_offset < 0:
+            raise ValueError("Please use a positive bin_center_offset")
+        if bin_center_offset > 1.0 / (number_of_bins - 1):
+            raise ValueError("bin_center_offset is larger than the bin width")
+
+        # Adjust bin midpoints and bins based on offset
+        bins = bins + bin_center_offset
+        bin_midpoints = (bin_midpoints + bin_center_offset) % 1.0
+
+        # Ensure first and last values are 0 and 360
+        bins = np.insert(bins, 0, 0)
+        bins[-1] = 1.0
+
+    # Bin values based on original phase
+    bin_inds = np.digitize(phase_arr, bins)
+
+    # Create binned data
+    binned_y_arr = [y_arr[bin_inds == i] for i in range(1, number_of_bins + 2)]
+
+    # Adjust the first and last bins if there is an offset
+    if bin_center_offset != 0:
+        binned_y_arr[-1] = np.concatenate((binned_y_arr[0], binned_y_arr[-1]))
+        binned_y_arr = binned_y_arr[1:]
+
+    cov_matrices = []
+    mean_matrices = []
+    for group in binned_y_arr:
+        if len(group) > 1:
+            # Center the data by subtracting the mean from each component (column)
+            group_mean = np.mean(group, axis=0)
+
+            centered_group = group - group_mean
+
+            # Compute the covariance matrix (3x3 in case of 3 components)
+            cov_matrix = np.cov(centered_group, rowvar=False)
+
+            cov_matrices.append(cov_matrix)
+            mean_matrices.append(group_mean)
+
+        else:
+            field_value_shape = y_arr[0].shape[0]
+
+            dummy_mean_value = np.full((field_value_shape), np.nan)
+            dummy_covariance_value = np.full(
+                (field_value_shape, field_value_shape), np.nan
+            )
+
+            # print(dummy_covariance_value.shape)
+            cov_matrices.append(dummy_covariance_value)
+            mean_matrices.append(dummy_mean_value)
+
+            print("Warning: empty bin")
+
+    phase_averaged_covariance = np.array(cov_matrices)
+    phase_averaged_y_arr = np.array(mean_matrices)
+
+    # print(phase_averaged_y_arr)
+
+    # Sort bin midpoints and results
+    sorted_bin_midpoints_inds = np.argsort(bin_midpoints)
+    bin_midpoints = bin_midpoints[sorted_bin_midpoints_inds]
+    phase_averaged_y_arr = np.array(phase_averaged_y_arr)[sorted_bin_midpoints_inds]
+    phase_averaged_covariance = np.array(phase_averaged_covariance)[
+        sorted_bin_midpoints_inds
+    ]
+
+    # Optionally include 0 and 360 as bin midpoints
+    if include_0_and_1:
+        if 0 in bin_midpoints:
+            bin_midpoints = np.append(bin_midpoints, 1)
+            phase_averaged_y_arr = np.concatenate(
+                [phase_averaged_y_arr, phase_averaged_y_arr[0:1]], axis=0
+            )
+            phase_averaged_covariance = np.concatenate(
+                [phase_averaged_covariance, phase_averaged_covariance[0:1]], axis=0
+            )
+            binned_y_arr.append(binned_y_arr[0])
+
+    # Store the results in the result object
+    result.bin_midpoints = np.array(bin_midpoints)
+    result.phase_averaged_mean = np.array(phase_averaged_y_arr)
+    result.phase_averaged_covariance = np.array(phase_averaged_covariance)
+    result.phase_averaged_std = np.sqrt(phase_averaged_covariance)
+    result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
+
+    return result
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    t_arr = np.linspace(0, 10, 20000)
+    frequency = 1.0
+    # y_arr = np.sin(t_arr * frequency * 2 * np.pi) + 0.3 * np.random.rand(len(t_arr)) - 0.15
+
+    y_arr = np.array(
+        (
+            np.sin(t_arr * frequency * 2 * np.pi)
+            + 0.3 * np.random.rand(len(t_arr))
+            - 0.15,
+            np.sin(t_arr * frequency * 2 * np.pi + 0.5*np.pi)
+            + 0.1 * np.random.rand(len(t_arr))
+            - 0.05,
+            np.sin(t_arr * frequency * 2 * np.pi + 1*np.pi)
+            + 0.2 * np.random.rand(len(t_arr))
+            - 0.1,
+        )
+    )
+    y_arr = y_arr.T
+
+
+    result = phase_average_field(t_arr, y_arr, frequency=frequency)
+
+    plt.plot(result.get_bins(), result.get_mean())
+    plt.xlim(0, 1)
+    plt.show()
+
+    var = result.get_variance()
+    for i in range(3):
+        for j in range(3):
+            plt.plot(result.get_bins(), var[:, i, j], label=f"{i}_{j}")
+
+    plt.legend()
+    plt.xlim(0, 1)
+    plt.show()
