@@ -308,7 +308,10 @@ def phase_average_field(
             centered_group = group - group_mean
 
             # Compute the covariance matrix (3x3 in case of 3 components)
-            cov_matrix = np.cov(centered_group, rowvar=False)
+            if y_arr.ndim > 1:
+            	cov_matrix = np.cov(centered_group, rowvar=False)
+            else:
+            	cov_matrix = np.var(centered_group)
 
             cov_matrices.append(cov_matrix)
             mean_matrices.append(group_mean)
@@ -356,9 +359,16 @@ def phase_average_field(
     result.bin_midpoints = np.array(bin_midpoints)
     result.phase_averaged_mean = np.array(phase_averaged_y_arr)
     result.phase_averaged_covariance = np.array(phase_averaged_covariance)
-    result.phase_averaged_std = np.sqrt(
-        np.diagonal(phase_averaged_covariance, axis1=1, axis2=2)
-    )
+    
+    if y_arr.ndim > 1:
+        result.phase_averaged_std = np.sqrt(
+            np.diagonal(phase_averaged_covariance, axis1=1, axis2=2)
+        )
+    else:
+        result.phase_averaged_std = np.sqrt(
+		    phase_averaged_covariance
+		)
+    
     result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
 
     return result
