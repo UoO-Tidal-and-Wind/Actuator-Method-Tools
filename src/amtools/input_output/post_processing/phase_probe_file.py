@@ -17,6 +17,7 @@ class PhaseProbeFile(ProbeFile):
         super().__init__(file_path)
         
         self.bin = np.array([])
+        self.totalTime = np.array([])
         
     def read(self):
         """
@@ -28,7 +29,7 @@ class PhaseProbeFile(ProbeFile):
 
         float_pattern = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
         probe_pattern = re.compile(
-            rf"# Probe (\d+) \(({float_pattern}) ({float_pattern}) ({float_pattern})\)"
+            rf"# PhaseProbe (\d+) \(({float_pattern}) ({float_pattern}) ({float_pattern})\)"
         )
 
 
@@ -67,6 +68,7 @@ class PhaseProbeFile(ProbeFile):
         self.y = np.array(y_coords, dtype=np.float64)
         self.z = np.array(z_coords, dtype=np.float64)
         
+        
         pattern = re.compile(
             r"""
             ^\s*
@@ -97,6 +99,7 @@ class PhaseProbeFile(ProbeFile):
 
         self.time = np.array(data[:, 0], dtype=float)
         self.bin = np.array(data[:, 1], dtype=int)
+        # self.totalTime = np.array(data[:,2], dtype=float)
         self.data = data[:, 2:]
 
         if file_type == "vector/tensor":
