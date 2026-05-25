@@ -85,6 +85,8 @@ class ProbeFile:
         self.x = np.array([])
         self.y = np.array([])
         self.z = np.array([])
+        
+        self.include_out_bounds = True
 
     def set_path(self, file_path: str):
         """
@@ -129,8 +131,11 @@ class ProbeFile:
         file_type = None
         for line in lines:
             if line.startswith("#"):
-                if "Time" in line or "# Not Found" in line:
+                if "Time" in line:
                     continue
+                if "# Not Found" in line:
+                    if not (self.include_out_bounds):
+                        continue
                 match = probe_pattern.match(line)
                 if match:
                     probe_indices.append(int(match.group(1)))
@@ -177,7 +182,9 @@ class ProbeFile:
                 for line in data_lines
                 if (m := pattern.search(line))
             ], dtype=object)
-
+        else:
+            raise Exception("Could not infer file_type")
+        
         self.time = np.array(data[:, 0], dtype=float)
         self.data = data[:, 1:]
 

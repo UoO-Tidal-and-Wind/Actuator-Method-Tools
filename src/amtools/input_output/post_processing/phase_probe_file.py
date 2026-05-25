@@ -96,6 +96,9 @@ class PhaseProbeFile(ProbeFile):
                 for line in data_lines
                 if (m := pattern.search(line))
             ], dtype=object)
+        else:
+            raise Exception("Could not infer file_type")
+    
 
         self.time = np.array(data[:, 0], dtype=float)
         self.bin = np.array(data[:, 1], dtype=int)
