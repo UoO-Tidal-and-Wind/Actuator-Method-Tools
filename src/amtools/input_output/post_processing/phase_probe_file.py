@@ -68,17 +68,19 @@ class PhaseProbeFile(ProbeFile):
         self.y = np.array(y_coords, dtype=np.float64)
         self.z = np.array(z_coords, dtype=np.float64)
         
-        
         pattern = re.compile(
-            r"""
-            ^\s*
-            ([+-]?\d+(?:\.\d+)?)      # time (float)
-            \s+
-            (\d+)                     # bin (int)
-            (.*)$                     # rest of the line
-            """,
-            re.VERBOSE,
-        )
+    r"""
+    ^\s*
+    ([+-]?\d+(?:\.\d+)?)      # time (float)
+    \s+
+    (\d+)                     # bin (int)
+    \s+
+    ([+-]?\d+(?:\.\d+)?)      # totalTime
+    (.*)$                     # rest of the line
+    """,
+    re.VERBOSE,
+)        
+
 
         data = np.array([])
         # Use regular expressions to split the data lines
@@ -92,18 +94,17 @@ class PhaseProbeFile(ProbeFile):
 
             # Apply regex to split by 16 spaces for each line
             data = np.array([
-                [m.group(1), m.group(2), *re.findall(r"\([^()]*\)", m.group(3))]
+                [m.group(1), m.group(2), m.group(3), *re.findall(r"\([^()]*\)", m.group(4))]
                 for line in data_lines
                 if (m := pattern.search(line))
             ], dtype=object)
         else:
             raise Exception("Could not infer file_type")
     
-
         self.time = np.array(data[:, 0], dtype=float)
         self.bin = np.array(data[:, 1], dtype=int)
-        # self.totalTime = np.array(data[:,2], dtype=float)
-        self.data = data[:, 2:]
+        self.totalTime = np.array(data[:,2], dtype=float)
+        self.data = data[:, 3:]
 
         if file_type == "vector/tensor":
             # Initialize the data structure as a list of lists (2D structure)
