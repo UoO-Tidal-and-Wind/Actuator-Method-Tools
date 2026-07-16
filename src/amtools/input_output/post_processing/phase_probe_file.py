@@ -1,4 +1,5 @@
 from __future__ import annotations
+import gzip
 from typing import Union, Sequence
 import logging
 from pathlib import Path
@@ -23,6 +24,9 @@ class PhaseProbeFile(ProbeFile):
         """
         Reads and parses the probe file.
         """
+        if not Path(self.path).exists():
+            logging.error("File '%s' not found.", self.path)
+            raise FileNotFoundError(f"The file '{self.path}' does not exist.")
         #probe_pattern = re.compile(
         #    r"# Probe (\d+) \((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)"
         #)
@@ -39,7 +43,8 @@ class PhaseProbeFile(ProbeFile):
         z_coords = []
 
         # Read file efficiently
-        with open(self.path, "r", encoding="utf-8") as file:
+        open_file = gzip.open if Path(self.path).suffix == ".gz" else open
+        with open_file(self.path, "rt", encoding="utf-8") as file:
             lines = file.readlines()
 
         # Find delimiter and file type in a single pass
@@ -85,10 +90,10 @@ class PhaseProbeFile(ProbeFile):
         data = np.array([])
         # Use regular expressions to split the data lines
         if file_type == "scalar":
-            data = np.loadtxt(self.path, comments="#")
+            data = np.loadtxt(lines, comments="#")
         elif file_type == "vector/tensor":
             # Split by 16 spaces and load the data manually
-            with open(self.path, "r", encoding="utf-8") as file:
+            with open_file(self.path, "rt", encoding="utf-8") as file:
                 # Skip header lines
                 data_lines = [line for line in file if not line.startswith("#")]
 
@@ -116,3 +121,26 @@ class PhaseProbeFile(ProbeFile):
             )
         
         
+
+
+    def _probe_header_label(self) -> str:
+        return "PhaseProbe"
+
+    def _validate_for_write(self) -> None:
+        super()._validate_for_write()
+        self.bin = np.asarray(self.bin)
+        self.totalTime = np.asarray(self.totalTime)
+        if self.bin.ndim != 1 or len(self.bin) != len(self.time):
+            raise ValueError("bin must be a one-dimensional array matching time.")
+        if self.totalTime.ndim != 1 or len(self.totalTime) != len(self.time):
+            raise ValueError("totalTime must be a one-dimensional array matching time.")
+        if not np.issubdtype(self.bin.dtype, np.integer):
+            if not np.all(np.equal(self.bin, np.floor(self.bin))):
+                raise ValueError("bin values must be integers.")
+
+    def _row_prefix(self, row_index: int) -> list[str]:
+        return [
+            self._format_number(self.time[row_index]),
+            str(int(self.bin[row_index])),
+            self._format_number(self.totalTime[row_index]),
+        ]

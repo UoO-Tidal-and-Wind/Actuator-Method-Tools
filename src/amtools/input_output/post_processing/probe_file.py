@@ -27,6 +27,7 @@ Example:
 """
 
 from __future__ import annotations
+import gzip
 from typing import Union, Sequence
 import logging
 from pathlib import Path
@@ -67,18 +68,15 @@ class ProbeFile:
 
     def __init__(self, file_path: str):
         """
-        Initializes the ProbeFile instance and verifies the file exists.
+        Initializes an empty ProbeFile instance.
 
         Args:
             file_path (str): Path to the probe output file.
 
-        Raises:
-            FileNotFoundError: If the provided file path does not exist.
+        The path may point to a file that does not yet exist, allowing a probe
+        file to be populated and written with the write method.
         """
         self.path = file_path
-        if not Path(self.path).exists():
-            logging.error("File '%s' not found.", self.path)
-            raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
         self.time = np.array([])
         self.data = np.array([])
@@ -95,18 +93,17 @@ class ProbeFile:
         Args:
             file_path (str): Path to the new probe file.
 
-        Raises:
-            FileNotFoundError: If the provided file path does not exist.
+        The path may point to a new output file.
         """
         self.path = file_path
-        if not Path(self.path).exists():
-            logging.error("File '%s' not found.", self.path)
-            raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
     def read(self):
         """
         Reads and parses the probe file.
         """
+        if not Path(self.path).exists():
+            logging.error("File '%s' not found.", self.path)
+            raise FileNotFoundError(f"The file '{self.path}' does not exist.")
         #probe_pattern = re.compile(
         #    r"# Probe (\d+) \((-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)\)"
         #)
@@ -123,7 +120,8 @@ class ProbeFile:
         z_coords = []
 
         # Read file efficiently
-        with open(self.path, "r", encoding="utf-8") as file:
+        open_file = gzip.open if Path(self.path).suffix == ".gz" else open
+        with open_file(self.path, "rt", encoding="utf-8") as file:
             lines = file.readlines()
 
         # Find delimiter and file type in a single pass
@@ -168,10 +166,10 @@ class ProbeFile:
         data = np.array([])
         # Use regular expressions to split the data lines
         if file_type == "scalar":
-            data = np.loadtxt(self.path, comments="#")
+            data = np.loadtxt(lines, comments="#")
         elif file_type == "vector/tensor":
             # Split by 16 spaces and load the data manually
-            with open(self.path, "r", encoding="utf-8") as file:
+            with open_file(self.path, "rt", encoding="utf-8") as file:
                 # Skip header lines
                 data_lines = [line for line in file if not line.startswith("#")]
 
@@ -288,3 +286,67 @@ class ProbeFile:
         self.y = np.append(self.y, other.y)
         self.z = np.append(self.z, other.z)
         self.data = np.concatenate((self.data, other.data), axis=1)
+
+
+    @staticmethod
+    def _format_number(value) -> str:
+        """Format a numeric value without sacrificing floating-point precision."""
+        return repr(float(value))
+
+    def _probe_header_label(self) -> str:
+        return "Probe"
+
+    def _row_prefix(self, row_index: int) -> list[str]:
+        return [self._format_number(self.time[row_index])]
+
+    def _validate_for_write(self) -> None:
+        """Validate the in-memory arrays before serialising a probe file."""
+        coordinates = (np.asarray(self.x), np.asarray(self.y), np.asarray(self.z))
+        if any(coordinate.ndim != 1 for coordinate in coordinates):
+            raise ValueError("Probe coordinates must be one-dimensional arrays.")
+        if len({len(coordinate) for coordinate in coordinates}) != 1:
+            raise ValueError("x, y, and z must contain the same number of probes.")
+
+        self.time = np.asarray(self.time)
+        self.data = np.asarray(self.data)
+        if self.time.ndim != 1 or len(self.time) == 0:
+            raise ValueError("time must be a non-empty one-dimensional array.")
+        if self.data.ndim not in (2, 3):
+            raise ValueError(
+                "data must have shape (time, probes) or (time, probes, components)."
+            )
+        if self.data.shape[0] != len(self.time):
+            raise ValueError("data and time must have the same number of rows.")
+        if self.data.shape[1] != len(self.x):
+            raise ValueError("data and coordinates must have the same number of probes.")
+        if self.data.shape[1] == 0 or (self.data.ndim == 3 and self.data.shape[2] == 0):
+            raise ValueError("data must contain at least one probe value.")
+
+    def write(self, file_path: str | Path | None = None) -> None:
+        """Write the in-memory probe data in the format accepted by read."""
+        if file_path is not None:
+            self.path = file_path
+        self._validate_for_write()
+
+        target_path = Path(self.path)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        open_file = gzip.open if target_path.suffix == ".gz" else open
+        with open_file(target_path, "wt", encoding="utf-8") as file:
+            for index, (x_value, y_value, z_value) in enumerate(zip(self.x, self.y, self.z)):
+                coordinates = " ".join(
+                    self._format_number(value) for value in (x_value, y_value, z_value)
+                )
+                file.write(f"# {self._probe_header_label()} {index} ({coordinates})\n")
+            file.write("# Time\n")
+
+            for row_index in range(len(self.time)):
+                values = self.data[row_index]
+                row = self._row_prefix(row_index)
+                if self.data.ndim == 2:
+                    row.extend(self._format_number(value) for value in values)
+                else:
+                    row.extend(
+                        "(" + " ".join(self._format_number(value) for value in probe) + ")"
+                        for probe in values
+                    )
+                file.write(" ".join(row) + "\n")

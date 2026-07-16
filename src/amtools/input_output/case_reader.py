@@ -214,6 +214,7 @@ class CaseReader:
             "latest", "first", "exactly", "closest to", "combined"
         ] = "latest",
         time_dir_value: str = "",
+        include_out_of_bounds=False,
     ):
         """
         Locate and load a probe file for a given variable from a specified time directory.
@@ -285,12 +286,15 @@ class CaseReader:
             self.turbine_output_time_dir = time_dirs[index]
 
         file_path = probe_path / self.turbine_output_time_dir / variable_name
+        if not file_path.exists() and file_path.with_name(f"{file_path.name}.gz").exists():
+            file_path = file_path.with_name(f"{file_path.name}.gz")
 
         if not file_path.exists():
             logging.warning("The '%s' file is missing.", file_path)
             raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
         file_reader = ProbeFile(file_path)
+        file_reader.include_out_bounds = include_out_of_bounds
         file_reader.read()
 
         if combine_files:
@@ -306,7 +310,12 @@ class CaseReader:
 
                 for new_time_dir in time_dirs_to_combine:
                     new_file_path = probe_path / new_time_dir / variable_name
+                    if not new_file_path.exists() and new_file_path.with_name(
+                        f"{new_file_path.name}.gz"
+                    ).exists():
+                        new_file_path = new_file_path.with_name(f"{new_file_path.name}.gz")
                     new_file_reader = ProbeFile(new_file_path)
+                    new_file_reader.include_out_bounds = include_out_of_bounds
                     new_file_reader.read()
 
                     current_max_time = file_reader.time.max()
@@ -410,6 +419,8 @@ class CaseReader:
             self.turbine_output_time_dir = time_dirs[index]
 
         file_path = probe_path / self.turbine_output_time_dir / variable_name
+        if not file_path.exists() and file_path.with_name(f"{file_path.name}.gz").exists():
+            file_path = file_path.with_name(f"{file_path.name}.gz")
 
         if not file_path.exists():
             logging.warning("The '%s' file is missing.", file_path)
@@ -431,6 +442,10 @@ class CaseReader:
 
                 for new_time_dir in time_dirs_to_combine:
                     new_file_path = probe_path / new_time_dir / variable_name
+                    if not new_file_path.exists() and new_file_path.with_name(
+                        f"{new_file_path.name}.gz"
+                    ).exists():
+                        new_file_path = new_file_path.with_name(f"{new_file_path.name}.gz")
                     new_file_reader = PhaseProbeFile(new_file_path)
                     new_file_reader.read()
 
