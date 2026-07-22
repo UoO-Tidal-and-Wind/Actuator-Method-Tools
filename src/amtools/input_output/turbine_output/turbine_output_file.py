@@ -1,29 +1,5 @@
 """
-turbine_output_file
-====================
-
-Defines the `TurbineOutputFile` class.
-
-This module provides a class for reading turbine output files, extracting 
-structured numerical data, and storing it in NumPy arrays.
-
-Attributes:
-    path (str): Path to the turbine output file.
-    turbine (np.ndarray): Array containing turbine IDs.
-    blade (np.ndarray): Array containing blade IDs (if available).
-    time (np.ndarray): Array containing time values.
-    dt (np.ndarray): Array containing time step values.
-    data (np.ndarray): Array containing numerical data.
-
-Example:
-    Example usage of the `TurbineOutputFile` class:
-
-    ```python
-    turbine_file = TurbineOutputFile('turbine_output.txt')
-    turbine_file.read()
-    turbine_file.crop_time(0, 10)
-    ```
-
+Reader for files written under an OpenFOAM ``turbineOutput`` directory.
 """
 
 from typing import Union, Sequence
@@ -39,26 +15,27 @@ logging.basicConfig(level=logging.WARNING,
 
 class TurbineOutputFile:
     """
-    A class for reading and processing turbine output files.
+    Reader for turbine output data.
 
     Attributes:
-        path (str): Path to the turbine output file.
-        turbine (np.ndarray): Array containing turbine IDs.
-        blade (np.ndarray): Array containing blade IDs (if available).
-        time (np.ndarray): Array containing time values.
-        dt (np.ndarray): Array containing time step values.
-        data (np.ndarray): Array containing numerical data.
+        path: Path to the turbine output file.
+        turbine: Turbine identifier for each row.
+        blade: Blade identifier for each row, or ``None`` values when the file has
+            no blade column.
+        time: One-dimensional array of output times.
+        dt: One-dimensional array of timesteps.
+        data: Numeric output columns after the metadata columns.
     """
 
     def __init__(self, file_path: str):
         """
-        Initializes the TurbineOutputFile instance and verifies the file exists.
+        Initialize a turbine-output reader and validate the path.
 
         Args:
-            file_path (str): Path to the turbine output file.
+            file_path: Path to the turbine output file.
 
         Raises:
-            FileNotFoundError: If the provided file path does not exist.
+            FileNotFoundError: If ``file_path`` does not exist.
         """
         self.path = file_path
         if not Path(self.path).exists():
@@ -72,14 +49,14 @@ class TurbineOutputFile:
 
     def read(self):
         """
-        Reads and processes the turbine output file.
+        Read turbine output data from disk.
 
-        This method reads the header and data from the file, processes them, 
-        and stores the results in instance attributes.
+        The header line supplies metadata columns such as ``Time(s)``, ``dt(s)``,
+        ``Turbine``, and optionally ``Blade``. Remaining columns are stored in ``data``.
 
         Raises:
-            ValueError: If the file is empty or contains no valid data.
-            KeyError: If expected columns (e.g., "Time(s)", "dt(s)", "Turbine") are missing.
+            ValueError: If the file contains no data rows.
+            KeyError: If required metadata columns are missing.
         """
         with open(self.path, 'r', encoding='utf-8') as f:
             header_line = f.readline().strip().strip("#")
@@ -116,13 +93,13 @@ class TurbineOutputFile:
 
     def set_path(self, file_path: str):
         """
-        Changes the path to the file.
+        Update the path to the turbine output file.
 
         Args:
-            file_path (str): Path to turbineOutput file.
+            file_path: New path to a turbine output file.
 
         Raises:
-            FileNotFoundError: If the provided file path does not exist.
+            FileNotFoundError: If ``file_path`` does not exist.
         """
         self.path = file_path
         if not Path(self.path).exists():
@@ -131,20 +108,13 @@ class TurbineOutputFile:
 
     def crop_time(self, lower_limit: float = -1E-10, upper_limit: float = 1E10):
         """
-        Filters data based on the time range between `lower_limit` and `upper_limit`.
+        Crop turbine output rows to an open time interval in-place.
 
-        Parameters
-        ----------
-        lower_limit : float, optional
-            The minimum time value to include (default is -1E-10).
+        Rows are retained when ``lower_limit < time < upper_limit``.
 
-        upper_limit : float, optional
-            The maximum time value to include (default is 1E10).
-
-        Modifies
-        --------
-        Filters the `self.data`, `self.dt`, `self.time`, `self.blade`, and `self.turbine`
-        attributes to include only values within the specified time range.
+        Args:
+            lower_limit: Lower time bound.
+            upper_limit: Upper time bound.
         """
         mask = (self.time > lower_limit) & (self.time < upper_limit)
         self.data = self.data[mask]
@@ -155,17 +125,10 @@ class TurbineOutputFile:
 
     def crop_blade(self, blade_index: int):
         """
-        Filters data to include only the specified blade index.
+        Keep only rows for one blade index in-place.
 
-        Parameters
-        ----------
-        blade_index : int
-            The index of the blade to keep in the filtered data.
-
-        Modifies
-        --------
-        Filters the `self.data`, `self.dt`, `self.time`, `self.blade`, and `self.turbine`
-        attributes to include only values corresponding to the specified blade.
+        Args:
+            blade_index: Blade identifier to retain.
         """
         mask = self.blade == blade_index
         self.data = self.data[mask]
@@ -176,17 +139,10 @@ class TurbineOutputFile:
 
     def crop_turbine(self, turbine_index: int):
         """
-        Filters data to include only the specified turbine index.
+        Keep only rows for one turbine index in-place.
 
-        Parameters
-        ----------
-        turbine_index : int
-            The index of the turbine to keep in the filtered data.
-
-        Modifies
-        --------
-        Filters the `self.data`, `self.dt`, `self.time`, `self.blade`, and `self.turbine`
-        attributes to include only values corresponding to the specified turbine.
+        Args:
+            turbine_index: Turbine identifier to retain.
         """
         mask = self.turbine == turbine_index
         self.data = self.data[mask]
@@ -197,13 +153,13 @@ class TurbineOutputFile:
 
     def get_using_blade_index(self, blade_index: Union[int, Sequence[int]]) -> np.ndarray:
         """
-        Returns the data masked using the provided blade indicies.
+        Return data rows for one or more blade indices.
 
         Args:
-            blade_index (Union[int, Sequence[int]]): Indicies used to mask the data.
+            blade_index: Blade identifier or sequence of blade identifiers to select.
 
         Returns:
-            np.ndarray: Masked data.
+            Rows from ``data`` whose ``blade`` value is selected.
         """
         if isinstance(blade_index, (int, np.integer)):
             blade_index = [blade_index]

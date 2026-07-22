@@ -1,3 +1,7 @@
+"""
+Reader and writer support for OpenFOAM phase-probe output files.
+"""
+
 from __future__ import annotations
 import gzip
 from typing import Union, Sequence
@@ -14,15 +18,40 @@ logging.basicConfig(
 from .probe_file import ProbeFile
 
 class PhaseProbeFile(ProbeFile):
+    """
+    Probe reader for phase-averaged probe output.
+
+    This class extends :class:`~amtools.input_output.post_processing.probe_file.ProbeFile`
+    with the additional columns written by phase probes.
+
+    Attributes:
+        bin: One-dimensional integer array of phase-bin indices.
+        totalTime: One-dimensional array containing the accumulated time for each
+            phase-bin sample.
+    """
     def __init__(self, file_path: str):
+        """
+        Initialize an empty phase-probe reader.
+
+        Args:
+            file_path: Path to the phase-probe output file.
+        """
         super().__init__(file_path)
-        
+
         self.bin = np.array([])
         self.totalTime = np.array([])
-        
+
     def read(self):
         """
-        Reads and parses the probe file.
+        Read phase-probe coordinates, phase metadata, and values from disk.
+
+        Header lines beginning with ``# PhaseProbe`` provide probe locations. Data rows
+        must contain ``time``, ``bin``, ``totalTime``, and then one scalar or
+        vector/tensor value per probe.
+
+        Raises:
+            FileNotFoundError: If ``path`` does not exist.
+            Exception: If the data type cannot be inferred from the file contents.
         """
         if not Path(self.path).exists():
             logging.error("File '%s' not found.", self.path)
@@ -72,7 +101,7 @@ class PhaseProbeFile(ProbeFile):
         self.x = np.array(x_coords, dtype=np.float64)
         self.y = np.array(y_coords, dtype=np.float64)
         self.z = np.array(z_coords, dtype=np.float64)
-        
+
         pattern = re.compile(
     r"""
     ^\s*
@@ -84,7 +113,7 @@ class PhaseProbeFile(ProbeFile):
     (.*)$                     # rest of the line
     """,
     re.VERBOSE,
-)        
+)
 
 
         data = np.array([])
@@ -105,7 +134,7 @@ class PhaseProbeFile(ProbeFile):
             ], dtype=object)
         else:
             raise Exception("Could not infer file_type")
-    
+
         self.time = np.array(data[:, 0], dtype=float)
         self.bin = np.array(data[:, 1], dtype=int)
         self.totalTime = np.array(data[:,2], dtype=float)
@@ -119,8 +148,8 @@ class PhaseProbeFile(ProbeFile):
                     for row in self.data
                 ]
             )
-        
-        
+
+
 
 
     def _probe_header_label(self) -> str:

@@ -1,27 +1,19 @@
 """
-case_reader
-===========
+Case-level readers for OpenFOAM actuator-method output.
 
-This module defines the `CaseReader` class, which provides functionality for reading and
-handling case directories related to turbine output and post-processing results.
-
-The `CaseReader` class facilitates the following:
-- Accessing turbine output data.
-- Retrieving post-processing probe data.
-- Navigating through time directories based on specific criteria (latest, first, exactly, closest
-    to).
-
-Classes:
-    CaseReader: Handles access to turbine output and post-processing data from a case directory.
+The :class:`CaseReader` class stores the paths for one simulation case and
+provides convenience methods for common output under ``turbineOutput`` and
+``postProcessing``. Reader methods support the same time-directory selection
+modes where applicable: ``"latest"``, ``"first"``, ``"exactly"``,
+``"closest to"``, and ``"combined"``.
 
 Example:
-    Example usage of the `CaseReader` class:
+    .. code-block:: python
 
-    ```python
-    case = CaseReader("/path/to/case")
-    turbine_data = case.turbine_output("turbine_data.dat", time_dir="latest")
-    probe_data = case.probe("probe_1", "U", time_dir="first")
-    ```
+       case = CaseReader("/path/to/case")
+       turbine_data = case.turbine_output("bladeForce", time_dir="latest")
+       velocity_probes = case.probe("probes", "U", time_dir="combined")
+       planar_u = case.planar_average("planarAveraging", "U", time_dir="combined")
 """
 
 import logging
@@ -35,6 +27,7 @@ from .post_processing.surface_files import SurfaceFiles
 from .post_processing.force_file import ForceFile
 from .post_processing.time_file import TimeFile
 from .post_processing.phase_probe_file import PhaseProbeFile
+from .post_processing.planar_average_file import PlanarAverageFile
 
 # Configure logging
 logging.basicConfig(
@@ -44,21 +37,29 @@ logging.basicConfig(
 
 class CaseReader:
     """
-    Class used to read in data from a case directory.
+    Reader facade for one OpenFOAM case directory.
 
-    This class manages paths related to turbine output and post-processing
-    within the specified case directory.
+    The class does not load data at construction time. Each public reader method
+    locates a specific output file, constructs the corresponding file-reader class,
+    loads it, and returns the populated object.
+
+    Attributes:
+        path: Root path of the case.
+        name: Name of the case directory.
+        turbine_output_path: Path to ``turbineOutput`` under the case.
+        post_processing_path: Path to ``postProcessing`` under the case.
+        turbine_output_time_dir: Name of the most recently selected time directory.
     """
 
     def __init__(self, root_path: str) -> None:
         """
-        Initializes the CaseReader with the specified case directory.
+        Initialize a case reader.
 
         Args:
-            root_path (str): Path to the root directory of the case.
+            root_path: Path to the root directory of the OpenFOAM case.
 
         Raises:
-            FileNotFoundError: If the provided root path does not exist.
+            FileNotFoundError: If ``root_path`` does not exist.
         """
         self.path: Path = Path(root_path)  # Convert to Path object
         if not self.path.exists():
@@ -82,10 +83,13 @@ class CaseReader:
 
     def set_path(self, root_path: str):
         """
-        Updates the path for the case directory.
+        Update the root path for the case.
+
+        This method only updates ``path``. It does not recalculate cached helper paths
+        such as ``turbine_output_path`` or ``post_processing_path``.
 
         Args:
-            root_path (str): The new path to the root directory of the case.
+            root_path: New path to the case root directory.
         """
         self.path = Path(root_path)
 
@@ -98,27 +102,26 @@ class CaseReader:
         time_dir_value: str = "",
     ):
         """
-        Retrieves turbine output data from the case directory.
+        Load a file from ``turbineOutput``.
+
+        Files are resolved as ``<case>/turbineOutput/<time_dir>/<file_name>``. When
+        ``time_dir="combined"``, data are read from the earliest time directory first
+        and then concatenated with later directories after dropping rows that overlap
+        with the current maximum time.
 
         Args:
-            file_name (str): Name of the turbine output file.
-            time_dir (Literal["latest", "first", "exactly", "closest to"], optional):
-                Determines which time directory to select.
-                - "latest": Uses the latest available time.
-                - "first": Uses the earliest available time.
-                - "exactly": Uses the time specified in `time_dir_value`.
-                - "closest to": Finds the closest available time to `time_dir_value`.
-                - "combine": Attempts to combine time directories together.
-                Defaults to "latest".
-            time_dir_value (str, optional): Required if `time_dir` is "exactly" or "closest to".
-                Specifies the exact or target time value.
+            file_name: Name of the turbine output file to load.
+            time_dir: Time-directory selection mode. Accepted values are ``"latest"``,
+                ``"first"``, ``"exactly"``, ``"closest to"``, and ``"combined"``.
+            time_dir_value: Required target value for ``"exactly"`` and
+                ``"closest to"``.
 
         Returns:
-            TurbineOutputFile: An instance of the TurbineOutputFile class after reading the file.
+            A populated :class:`~amtools.input_output.turbine_output.turbine_output_file.TurbineOutputFile`.
 
         Raises:
-            ValueError: If `time_dir` is "exactly" or "closest to" but `time_dir_value`
-            is not provided.
+            FileNotFoundError: If the resolved output file does not exist.
+            ValueError: If ``time_dir_value`` is required but not provided.
         """
         combine_files = False
         if time_dir == "combined":
@@ -217,36 +220,29 @@ class CaseReader:
         include_out_of_bounds=False,
     ):
         """
-        Locate and load a probe file for a given variable from a specified time directory.
+        Load an OpenFOAM probe variable from ``postProcessing``.
 
-        Parameters
-        ----------
-        probe_name : str
-            Name of the probe directory within the post-processing output.
-        variable_name : str
-            Name of the variable to load (e.g., 'U', 'p').
-        time_dir : Literal["latest", "first", "exactly", "closest to"], optional
-            Strategy for selecting the time directory:
-            - "latest": use the highest time value (default)
-            - "first": use the lowest time value
-            - "exactly": use the directory that exactly matches `time_dir_value`
-            - "closest to": use the directory closest to `time_dir_value`
-            - "combined": Attempts to combined time directories together.
-        time_dir_value : str, optional
-            Required if `time_dir` is "exactly" or "closest to". Should be a string representation
-            of a floating-point time (e.g., "12.5").
+        Files are resolved as ``<case>/postProcessing/<probe_name>/<time_dir>/<variable_name>``.
+        If the plain file is missing, a ``.gz`` file with the same name is used when
+        available. Scalar data are stored with shape ``(time, probes)`` and
+        vector/tensor data with shape ``(time, probes, components)``.
 
-        Returns
-        -------
-        ProbeFile
-            A `ProbeFile` object containing the data read from the selected file.
+        Args:
+            probe_name: Name of the probe directory under ``postProcessing``.
+            variable_name: Name of the variable file to load, such as ``"U"`` or ``"p"``.
+            time_dir: Time-directory selection mode. Accepted values are ``"latest"``,
+                ``"first"``, ``"exactly"``, ``"closest to"``, and ``"combined"``.
+            time_dir_value: Required target value for ``"exactly"`` and
+                ``"closest to"``.
+            include_out_of_bounds: Whether to keep probes marked ``# Not Found`` in the
+                file header.
 
-        Raises
-        ------
-        FileNotFoundError
-            If the specified probe directory or variable file does not exist.
-        ValueError
-            If `time_dir_value` is not provided when required.
+        Returns:
+            A populated :class:`~amtools.input_output.post_processing.probe_file.ProbeFile`.
+
+        Raises:
+            FileNotFoundError: If the probe directory or resolved variable file is missing.
+            ValueError: If ``time_dir_value`` is required but not provided.
         """
 
         probe_path = self.post_processing_path / probe_name
@@ -339,7 +335,7 @@ class CaseReader:
                     # file_reader.z = np.concatenate((file_reader.z, new_file_reader.z))
 
         return file_reader
-    
+
     def phaseProbe(
         self,
         probe_name: str,
@@ -350,36 +346,26 @@ class CaseReader:
         time_dir_value: str = "",
     ):
         """
-        Locate and load a probe file for a given variable from a specified time directory.
+        Load an OpenFOAM phase-probe variable from ``postProcessing``.
 
-        Parameters
-        ----------
-        probe_name : str
-            Name of the probe directory within the post-processing output.
-        variable_name : str
-            Name of the variable to load (e.g., 'U', 'p').
-        time_dir : Literal["latest", "first", "exactly", "closest to"], optional
-            Strategy for selecting the time directory:
-            - "latest": use the highest time value (default)
-            - "first": use the lowest time value
-            - "exactly": use the directory that exactly matches `time_dir_value`
-            - "closest to": use the directory closest to `time_dir_value`
-            - "combined": Attempts to combined time directories together.
-        time_dir_value : str, optional
-            Required if `time_dir` is "exactly" or "closest to". Should be a string representation
-            of a floating-point time (e.g., "12.5").
+        Files are resolved as ``<case>/postProcessing/<probe_name>/<time_dir>/<variable_name>``.
+        The returned reader includes the probe coordinates plus phase-bin metadata
+        stored in ``bin`` and ``totalTime``.
 
-        Returns
-        -------
-        ProbeFile
-            A `ProbeFile` object containing the data read from the selected file.
+        Args:
+            probe_name: Name of the phase-probe directory under ``postProcessing``.
+            variable_name: Name of the variable file to load.
+            time_dir: Time-directory selection mode. Accepted values are ``"latest"``,
+                ``"first"``, ``"exactly"``, ``"closest to"``, and ``"combined"``.
+            time_dir_value: Required target value for ``"exactly"`` and
+                ``"closest to"``.
 
-        Raises
-        ------
-        FileNotFoundError
-            If the specified probe directory or variable file does not exist.
-        ValueError
-            If `time_dir_value` is not provided when required.
+        Returns:
+            A populated :class:`~amtools.input_output.post_processing.phase_probe_file.PhaseProbeFile`.
+
+        Raises:
+            FileNotFoundError: If the phase-probe directory or resolved variable file is missing.
+            ValueError: If ``time_dir_value`` is required but not provided.
         """
 
         probe_path = self.post_processing_path / probe_name
@@ -473,14 +459,168 @@ class CaseReader:
                     # file_reader.z = np.concatenate((file_reader.z, new_file_reader.z))
 
         return file_reader
-    
+
+    def planar_average(
+        self,
+        planar_average_name: str,
+        variable_name: str,
+        time_dir: Literal[
+            "latest", "first", "exactly", "closest to", "combined"
+        ] = "latest",
+        time_dir_value: str = "",
+    ):
+        """
+        Load a planar averaging variable from ``postProcessing``.
+
+        Files are resolved as
+        ``<case>/postProcessing/<planar_average_name>/<time_dir>/<variable_name>``. If
+        the plain file is missing, a ``.gz`` file with the same name is used when
+        available. Scalar output is stored in ``data`` with shape ``(time, heights)``;
+        vector or tensor output is stored with shape ``(time, heights, components)``.
+
+        Args:
+            planar_average_name: Name of the planar averaging directory under
+                ``postProcessing``.
+            variable_name: Name of the variable file to load, such as ``"U"`` or ``"p"``.
+            time_dir: Time-directory selection mode. Accepted values are ``"latest"``,
+                ``"first"``, ``"exactly"``, ``"closest to"``, and ``"combined"``.
+            time_dir_value: Required target value for ``"exactly"`` and
+                ``"closest to"``.
+
+        Returns:
+            A populated :class:`~amtools.input_output.post_processing.planar_average_file.PlanarAverageFile`.
+
+        Raises:
+            FileNotFoundError: If the planar averaging directory or variable file is missing.
+            ValueError: If ``time_dir_value`` is required but not provided, or if an
+                unknown ``time_dir`` selector is supplied.
+        """
+
+        planar_average_path = self.post_processing_path / planar_average_name
+
+        if not planar_average_path.exists():
+            logging.warning("The %s path is missing.", planar_average_path)
+            raise FileNotFoundError(
+                f"The path {planar_average_path} does not exist."
+            )
+
+        combine_files = False
+        if time_dir == "combined":
+            time_dir = "first"
+            combine_files = True
+
+        time_dirs = [f.name for f in planar_average_path.iterdir()]
+        if time_dir == "latest":
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmax(time_dirs_float)
+            self.turbine_output_time_dir = time_dirs[index]
+        elif time_dir == "first":
+            time_dirs_float = [float(f) for f in time_dirs]
+            index = np.argmin(time_dirs_float)
+            self.turbine_output_time_dir = time_dirs[index]
+        elif time_dir == "exactly":
+            if not time_dir_value:
+                raise ValueError(
+                    "time_dir_value must be provided when using exactly."
+                )
+            self.turbine_output_time_dir = time_dir_value
+        elif time_dir == "closest to":
+            if not time_dir_value:
+                raise ValueError(
+                    "time_dir_value must be provided when using closest to."
+                )
+            time_dirs_float = np.array([float(f) for f in time_dirs])
+            index = np.argmin(np.abs(time_dirs_float - float(time_dir_value)))
+            self.turbine_output_time_dir = time_dirs[index]
+        else:
+            raise ValueError(f"Unknown time_dir selection {time_dir}.")
+
+        file_path = planar_average_path / self.turbine_output_time_dir / variable_name
+        if not file_path.exists() and file_path.with_name(f"{file_path.name}.gz").exists():
+            file_path = file_path.with_name(f"{file_path.name}.gz")
+
+        if not file_path.exists():
+            logging.warning("The %s file is missing.", file_path)
+            raise FileNotFoundError(f"The file {file_path} does not exist.")
+
+        file_reader = PlanarAverageFile(file_path)
+        file_reader.read()
+
+        if combine_files:
+            time_dirs_to_combine = time_dirs.copy()
+            time_dirs_to_combine.remove(self.turbine_output_time_dir)
+
+            if len(time_dirs_to_combine) != 0:
+                def convert_to_float(item):
+                    return float(item)
+
+                time_dirs_to_combine.sort(key=convert_to_float)
+
+                for new_time_dir in time_dirs_to_combine:
+                    new_file_path = planar_average_path / new_time_dir / variable_name
+                    if not new_file_path.exists() and new_file_path.with_name(
+                        f"{new_file_path.name}.gz"
+                    ).exists():
+                        new_file_path = new_file_path.with_name(
+                            f"{new_file_path.name}.gz"
+                        )
+
+                    new_file_reader = PlanarAverageFile(new_file_path)
+                    new_file_reader.read()
+
+                    current_max_time = file_reader.time.max()
+                    new_file_reader.crop_by_time(lower_limit=current_max_time)
+                    file_reader.append(new_file_reader)
+
+        return file_reader
+
+    def planarAverage(
+        self,
+        planar_average_name: str,
+        variable_name: str,
+        time_dir: Literal[
+            "latest", "first", "exactly", "closest to", "combined"
+        ] = "latest",
+        time_dir_value: str = "",
+    ):
+        """
+        Compatibility wrapper for :meth:`planar_average`.
+
+        Args:
+            planar_average_name: Name of the planar averaging directory under
+                ``postProcessing``.
+            variable_name: Name of the variable file to load.
+            time_dir: Time-directory selection mode.
+            time_dir_value: Required target value for ``"exactly"`` and
+                ``"closest to"``.
+
+        Returns:
+            A populated :class:`~amtools.input_output.post_processing.planar_average_file.PlanarAverageFile`.
+        """
+        return self.planar_average(
+            planar_average_name, variable_name, time_dir, time_dir_value
+        )
+
     def surfaces(self, surfaces_name: str):
+        """
+        Return a surface-file helper for a ``postProcessing`` surface directory.
+
+        Args:
+            surfaces_name: Name of the surface output directory under ``postProcessing``.
+
+        Returns:
+            A :class:`~amtools.input_output.post_processing.surface_files.SurfaceFiles`
+            object for loading files from available surface time directories.
+
+        Raises:
+            FileNotFoundError: If the surface output directory is missing.
+        """
         if not (self.post_processing_path / surfaces_name).exists():
             logging.warning("The '%s' path is missing.", self.post_processing_path / surfaces_name)
             raise FileNotFoundError(f"The path '{self.post_processing_path / surfaces_name}' does not exist.")
         surface_files = SurfaceFiles(self.post_processing_path / surfaces_name)
         return surface_files
-    
+
     def force(
         self,
         force_name: str,
@@ -490,36 +630,25 @@ class CaseReader:
         time_dir_value: str = "",
     ):
         """
-        Locate and load a probe file for a given variable from a specified time directory.
+        Load ``force.dat`` from a post-processing force directory.
 
-        Parameters
-        ----------
-        probe_name : str
-            Name of the probe directory within the post-processing output.
-        variable_name : str
-            Name of the variable to load (e.g., 'U', 'p').
-        time_dir : Literal["latest", "first", "exactly", "closest to"], optional
-            Strategy for selecting the time directory:
-            - "latest": use the highest time value (default)
-            - "first": use the lowest time value
-            - "exactly": use the directory that exactly matches `time_dir_value`
-            - "closest to": use the directory closest to `time_dir_value`
-            - "combined": Attempts to combined time directories together.
-        time_dir_value : str, optional
-            Required if `time_dir` is "exactly" or "closest to". Should be a string representation
-            of a floating-point time (e.g., "12.5").
+        Files are resolved as ``<case>/postProcessing/<force_name>/<time_dir>/force.dat``.
+        When ``time_dir="combined"``, later time directories are appended after rows
+        that overlap the current maximum time are dropped.
 
-        Returns
-        -------
-        ForceFile
-            A `ForceFile` object containing the data read from the selected file.
+        Args:
+            force_name: Name of the force output directory under ``postProcessing``.
+            time_dir: Time-directory selection mode. Accepted values are ``"latest"``,
+                ``"first"``, ``"exactly"``, ``"closest to"``, and ``"combined"``.
+            time_dir_value: Required target value for ``"exactly"`` and
+                ``"closest to"``.
 
-        Raises
-        ------
-        FileNotFoundError
-            If the specified probe directory or variable file does not exist.
-        ValueError
-            If `time_dir_value` is not provided when required.
+        Returns:
+            A populated :class:`~amtools.input_output.post_processing.force_file.ForceFile`.
+
+        Raises:
+            FileNotFoundError: If the force directory or ``force.dat`` file is missing.
+            ValueError: If ``time_dir_value`` is required but not provided.
         """
 
         force_path = self.post_processing_path / force_name
@@ -599,9 +728,9 @@ class CaseReader:
                     file_reader.time = np.concatenate(
                         (file_reader.time, new_file_reader.time)
                     )
-                    
+
                     file_reader.split_data()
-                    
+
 
         return file_reader
 
@@ -614,36 +743,25 @@ class CaseReader:
         time_dir_value: str = "",
     ):
         """
-        Locate and load a probe file for a given variable from a specified time directory.
+        Load ``timeInfo.dat`` from a post-processing time directory.
 
-        Parameters
-        ----------
-        probe_name : str
-            Name of the probe directory within the post-processing output.
-        variable_name : str
-            Name of the variable to load (e.g., 'U', 'p').
-        time_dir : Literal["latest", "first", "exactly", "closest to"], optional
-            Strategy for selecting the time directory:
-            - "latest": use the highest time value (default)
-            - "first": use the lowest time value
-            - "exactly": use the directory that exactly matches `time_dir_value`
-            - "closest to": use the directory closest to `time_dir_value`
-            - "combined": Attempts to combined time directories together.
-        time_dir_value : str, optional
-            Required if `time_dir` is "exactly" or "closest to". Should be a string representation
-            of a floating-point time (e.g., "12.5").
+        Files are resolved as ``<case>/postProcessing/<time_name>/<time_dir>/timeInfo.dat``.
+        When ``time_dir="combined"``, later time directories are appended after rows
+        that overlap the current maximum time are dropped.
 
-        Returns
-        -------
-        TimeFile
-            A `TimeFile` object containing the data read from the selected file.
+        Args:
+            time_name: Name of the time output directory under ``postProcessing``.
+            time_dir: Time-directory selection mode. Accepted values are ``"latest"``,
+                ``"first"``, ``"exactly"``, ``"closest to"``, and ``"combined"``.
+            time_dir_value: Required target value for ``"exactly"`` and
+                ``"closest to"``.
 
-        Raises
-        ------
-        FileNotFoundError
-            If the specified probe directory or variable file does not exist.
-        ValueError
-            If `time_dir_value` is not provided when required.
+        Returns:
+            A populated :class:`~amtools.input_output.post_processing.time_file.TimeFile`.
+
+        Raises:
+            FileNotFoundError: If the time output directory or ``timeInfo.dat`` file is missing.
+            ValueError: If ``time_dir_value`` is required but not provided.
         """
 
         time_path = self.post_processing_path / time_name
@@ -723,8 +841,8 @@ class CaseReader:
                     file_reader.time = np.concatenate(
                         (file_reader.time, new_file_reader.time)
                     )
-                    
+
                     file_reader.split_data()
-                    
+
 
         return file_reader

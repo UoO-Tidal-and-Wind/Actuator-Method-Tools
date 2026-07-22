@@ -1,5 +1,5 @@
 """
-turbine_output - methods relating to reading in and outputting to the turbineOutput directory"
+Readers for OpenFOAM files written under ``turbineOutput``.
 """
 
 from .turbine_output_file import TurbineOutputFile
