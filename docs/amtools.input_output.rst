@@ -1,6 +1,11 @@
 amtools.input\_output package
 =============================
 
+The ``input_output`` package provides readers for an OpenFOAM case directory,
+including ``turbineOutput`` files and common ``postProcessing`` outputs such as
+probes, phase probes, planar averages, forces, timing information, and sampled
+surfaces.
+
 Subpackages
 -----------
 

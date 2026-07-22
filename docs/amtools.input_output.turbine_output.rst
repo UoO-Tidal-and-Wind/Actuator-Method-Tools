@@ -1,6 +1,11 @@
 amtools.input\_output.turbine\_output package
 =============================================
 
+Readers for OpenFOAM outputs stored below a case ``turbineOutput`` directory.
+Most code should access these through
+:class:`amtools.input_output.case_reader.CaseReader` unless a single file is
+being read directly.
+
 Submodules
 ----------
 

@@ -9,7 +9,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join("..", "src", "amtools")))
+sys.path.insert(0, os.path.abspath(os.path.join("..", "src")))
 
 project = "amtools"
 copyright = "2025, Dylan"
@@ -26,9 +26,9 @@ extensions = [
     "sphinx_autodoc_typehints",
 ]
 
-napoleon_google_docstring = True     
-napoleon_numpy_docstring = False     
-napoleon_include_init_with_doc = False 
+napoleon_google_docstring = True
+napoleon_numpy_docstring = False
+napoleon_include_init_with_doc = False
 napoleon_include_private_with_doc = False
 napoleon_include_special_with_doc = True
 napoleon_use_admonition_for_examples = False
