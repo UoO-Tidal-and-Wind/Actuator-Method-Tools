@@ -28,6 +28,7 @@ from .post_processing.force_file import ForceFile
 from .post_processing.time_file import TimeFile
 from .post_processing.phase_probe_file import PhaseProbeFile
 from .post_processing.planar_average_file import PlanarAverageFile
+from .wake_finder.sheared_wake_finder_file import ShearedWakeFinderFile
 
 # Configure logging
 logging.basicConfig(
@@ -69,7 +70,9 @@ class CaseReader:
         self.name: str = self.path.name  # Direct access to the name of the path
         self.turbine_output_path: Path = self.path / "turbineOutput"
         self.post_processing_path: Path = self.path / "postProcessing"
+        self.sheared_wake_finder_path: Path = self.path / "shearedWakeFinder"
         self.turbine_output_time_dir = ""
+        self.sheared_wake_finder_time_dir = ""
 
         if not self.turbine_output_path.exists():
             logging.warning(
@@ -80,6 +83,88 @@ class CaseReader:
             logging.warning(
                 "The 'postProcessing' directory is missing in '%s'.", self.path
             )
+
+
+        if not self.sheared_wake_finder_path.exists():
+            logging.warning(
+                "The 'shearedWakeFinder' directory is missing in '%s'.", self.path
+            )
+
+    def shearedWakeReader(
+        self,
+        object_name: str,
+        time_dir: Literal[
+            "latest", "first", "exactly", "closest to", "combined"
+        ] = "latest",
+        time_dir_value: str = "",
+    ) -> ShearedWakeFinderFile:
+        """Load output from a ``shearedWakeFinder`` function object.
+
+        Files are resolved as ``<case>/shearedWakeFinder/<time_dir>/<object_name>``.
+        In ``combined`` mode, restart-overlap rows are discarded before appending.
+        """
+        if not self.sheared_wake_finder_path.exists():
+            raise FileNotFoundError(
+                f"The path '{self.sheared_wake_finder_path}' does not exist."
+            )
+
+        time_dirs = [
+            entry.name
+            for entry in self.sheared_wake_finder_path.iterdir()
+            if entry.is_dir()
+        ]
+        try:
+            time_dirs.sort(key=float)
+        except ValueError as exc:
+            raise ValueError(
+                "All shearedWakeFinder time directories must have numeric names."
+            ) from exc
+        if not time_dirs:
+            raise FileNotFoundError(
+                f"No time directories were found in '{self.sheared_wake_finder_path}'."
+            )
+
+        combine_files = time_dir == "combined"
+        if time_dir in ("first", "combined"):
+            selected_time_dir = time_dirs[0]
+        elif time_dir == "latest":
+            selected_time_dir = time_dirs[-1]
+        elif time_dir == "exactly":
+            if not time_dir_value:
+                raise ValueError("time_dir_value must be provided when using 'exactly'.")
+            selected_time_dir = time_dir_value
+        elif time_dir == "closest to":
+            if not time_dir_value:
+                raise ValueError("time_dir_value must be provided when using 'closest to'.")
+            selected_time_dir = min(
+                time_dirs, key=lambda item: abs(float(item) - float(time_dir_value))
+            )
+        else:
+            raise ValueError(f"Unknown time_dir selection '{time_dir}'.")
+
+        self.sheared_wake_finder_time_dir = selected_time_dir
+        file_path = self.sheared_wake_finder_path / selected_time_dir / object_name
+        if not file_path.exists():
+            raise FileNotFoundError(f"The file '{file_path}' does not exist.")
+
+        file_reader = ShearedWakeFinderFile(file_path)
+        file_reader.read()
+
+        if combine_files:
+            for next_time_dir in time_dirs[1:]:
+                next_file_path = (
+                    self.sheared_wake_finder_path / next_time_dir / object_name
+                )
+                if not next_file_path.exists():
+                    raise FileNotFoundError(
+                        f"The file '{next_file_path}' does not exist."
+                    )
+                next_reader = ShearedWakeFinderFile(next_file_path)
+                next_reader.read()
+                next_reader.crop_by_time(lower_limit=file_reader.time.max())
+                file_reader.append(next_reader)
+
+        return file_reader
 
     def set_path(self, root_path: str):
         """
