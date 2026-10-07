@@ -82,6 +82,3 @@ class SurfaceFiles:
             One-dimensional array of available time-directory values.
         """
         return self.times_floats
-
-
-

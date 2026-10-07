@@ -21,10 +21,10 @@ Example:
     Example usage of the `phase_average_array` function:
 
     ```python
-    t_arr = np.array([0.0, 0.1, 0.2, 0.3, 0.4])
-    y_arr = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    result = phase_average_array(t_arr, y_arr, frequency=1.0)
-    print(result.phase_averaged_mean)
+    sample_times = np.array([0.0, 0.1, 0.2, 0.3, 0.4])
+    sample_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    sample_result = phase_average_array(sample_times, sample_values, frequency=1.0)
+    print(sample_result.phase_averaged_mean)
     ```
 
 """
@@ -63,8 +63,7 @@ class PhaseAverageResult:
         """
         if self.bin_midpoints.max() > 1.0:
             return self.bin_midpoints / 360
-        else:
-            return self.bin_midpoints
+        return self.bin_midpoints
 
     def get_bins_in_degrees(self):
         """
@@ -113,7 +112,7 @@ def phase_average_array(
     include_0_and_360: bool = True,
     remove_phase_offset: bool = False,
     base: str = "iter",
-    deltaT: np.ndarray = None,
+    delta_t: np.ndarray = None,
 ) -> PhaseAverageResult:
     """
     Perform phase averaging on an array of values (`y_arr`) using the corresponding time
@@ -145,7 +144,7 @@ def phase_average_array(
     """
 
     print("WARNING This is deprecated, USE phase_average_field instead!")
-    result = PhaseAverageResult()
+    phase_result = PhaseAverageResult()
 
     # Calculate phase array
     phase_arr = (np.degrees(2 * np.pi * frequency * t_arr) + phase_offset) % 360
@@ -195,13 +194,13 @@ def phase_average_array(
         # account for the base
         if base == "time":
             print("changing base to time")
-            deltaTSums = [
-                np.sum(deltaT[bin_inds == i]) for i in range(1, number_of_bins + 2)
+            delta_t_sums = [
+                np.sum(delta_t[bin_inds == i]) for i in range(1, number_of_bins + 2)
             ]
-            print(f"deltaTSums shape {len(deltaTSums)}")
-            tmp = y_arr * deltaT
+            print(f"delta_t_sums shape {len(delta_t_sums)}")
+            tmp = y_arr * delta_t
             binned_y_arr = [
-                tmp[bin_inds == i] / np.sum(deltaT[bin_inds == i])
+                tmp[bin_inds == i] / np.sum(delta_t[bin_inds == i])
                 for i in range(1, number_of_bins + 2)
             ]
 
@@ -245,12 +244,12 @@ def phase_average_array(
             binned_y_arr.append(binned_y_arr[0])
 
     # Store the results in the result object
-    result.bin_midpoints = np.array(bin_midpoints)
-    result.phase_averaged_mean = np.array(phase_averaged_y_arr)
-    result.phase_averaged_std = np.array(phase_averaged_y_arr_std)
-    result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
+    phase_result.bin_midpoints = np.array(bin_midpoints)
+    phase_result.phase_averaged_mean = np.array(phase_averaged_y_arr)
+    phase_result.phase_averaged_std = np.array(phase_averaged_y_arr_std)
+    phase_result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
 
-    return result
+    return phase_result
 
 
 def phase_average_field(
@@ -262,8 +261,9 @@ def phase_average_field(
     bin_center_offset: float = None,
     include_0_and_1: bool = True,
 ) -> PhaseAverageResult:
-
-    result = PhaseAverageResult()
+    """Compute phase averages and covariance for scalar or vector time-series data."""
+    del phase_offset  # Retained for backwards-compatible call signatures.
+    phase_result = PhaseAverageResult()
 
     # Calculate phase array
     phase_arr = (frequency * t_arr) % 1.0
@@ -309,9 +309,9 @@ def phase_average_field(
 
             # Compute the covariance matrix (3x3 in case of 3 components)
             if y_arr.ndim > 1:
-            	cov_matrix = np.cov(centered_group, rowvar=False)
+                cov_matrix = np.cov(centered_group, rowvar=False)
             else:
-            	cov_matrix = np.var(centered_group)
+                cov_matrix = np.var(centered_group)
 
             cov_matrices.append(cov_matrix)
             mean_matrices.append(group_mean)
@@ -356,60 +356,66 @@ def phase_average_field(
             binned_y_arr.append(binned_y_arr[0])
 
     # Store the results in the result object
-    result.bin_midpoints = np.array(bin_midpoints)
-    result.phase_averaged_mean = np.array(phase_averaged_y_arr)
-    result.phase_averaged_covariance = np.array(phase_averaged_covariance)
-    
+    phase_result.bin_midpoints = np.array(bin_midpoints)
+    phase_result.phase_averaged_mean = np.array(phase_averaged_y_arr)
+    phase_result.phase_averaged_covariance = np.array(phase_averaged_covariance)
+
     if y_arr.ndim > 1:
-        result.phase_averaged_std = np.sqrt(
+        phase_result.phase_averaged_std = np.sqrt(
             np.diagonal(phase_averaged_covariance, axis1=1, axis2=2)
         )
     else:
-        result.phase_averaged_std = np.sqrt(
+        phase_result.phase_averaged_std = np.sqrt(
 		    phase_averaged_covariance
 		)
-    
-    result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
 
-    return result
+    phase_result.bin_counts = np.array([len(arr) for arr in binned_y_arr])
+
+    return phase_result
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    t_arr = np.linspace(0, 10, 20000)
-    frequency = 1.0
+    sample_times = np.linspace(0, 10, 20000)
+    TEST_FREQUENCY = 1.0
 
-    y_arr = np.array(
+    sample_values = np.array(
         (
-            np.sin(t_arr * frequency * 2 * np.pi)
-            + 0.3 * np.random.rand(len(t_arr))
+            np.sin(sample_times * TEST_FREQUENCY * 2 * np.pi)
+            + 0.3 * np.random.rand(len(sample_times))
             - 0.15,
-            np.sin(t_arr * frequency * 2 * np.pi + 0.5 * np.pi)
-            + 0.1 * np.random.rand(len(t_arr))
+            np.sin(sample_times * TEST_FREQUENCY * 2 * np.pi + 0.5 * np.pi)
+            + 0.1 * np.random.rand(len(sample_times))
             - 0.05,
-            np.sin(t_arr * frequency * 2 * np.pi + 1 * np.pi)
-            + 0.2 * np.random.rand(len(t_arr))
+            np.sin(sample_times * TEST_FREQUENCY * 2 * np.pi + 1 * np.pi)
+            + 0.2 * np.random.rand(len(sample_times))
             - 0.1,
         )
     )
-    y_arr = y_arr.T
+    sample_values = sample_values.T
 
-    result = phase_average_field(t_arr, y_arr, frequency=frequency)
-    print(result.get_mean().shape, result.get_variance().shape, result.get_std().shape)
+    sample_result = phase_average_field(
+        sample_times, sample_values, frequency=TEST_FREQUENCY
+    )
+    print(
+        sample_result.get_mean().shape,
+        sample_result.get_variance().shape,
+        sample_result.get_std().shape,
+    )
 
     plt.figure()
     for i in range(3):
-        plt.plot(result.get_bins(), result.get_mean()[:,i], label=f"{i}")
+        plt.plot(sample_result.get_bins(), sample_result.get_mean()[:, i], label=f"{i}")
     plt.xlim(0, 1)
     plt.legend()
     plt.title("Means")
 
     plt.figure()
-    var = result.get_variance()
+    var = sample_result.get_variance()
     for i in range(3):
         for j in range(3):
-            plt.plot(result.get_bins(), var[:, i, j], label=f"{i}_{j}")
+            plt.plot(sample_result.get_bins(), var[:, i, j], label=f"{i}_{j}")
 
     plt.legend()
     plt.xlim(0, 1)

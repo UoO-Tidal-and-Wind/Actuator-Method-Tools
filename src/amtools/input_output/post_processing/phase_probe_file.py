@@ -4,18 +4,16 @@ Reader and writer support for OpenFOAM phase-probe output files.
 
 from __future__ import annotations
 import gzip
-from typing import Union, Sequence
 import logging
 from pathlib import Path
 import re
 import numpy as np
+from .probe_file import ProbeFile
 
 # Configure logging
 logging.basicConfig(
     level=logging.WARNING, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
-from .probe_file import ProbeFile
 
 class PhaseProbeFile(ProbeFile):
     """
@@ -26,9 +24,10 @@ class PhaseProbeFile(ProbeFile):
 
     Attributes:
         bin: One-dimensional integer array of phase-bin indices.
-        totalTime: One-dimensional array containing the accumulated time for each
-            phase-bin sample.
+        total_time: One-dimensional array containing accumulated time per phase-bin sample.
     """
+    # Adds phase metadata to ProbeFile's time, data, and coordinate arrays.
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, file_path: str):
         """
         Initialize an empty phase-probe reader.
@@ -39,7 +38,11 @@ class PhaseProbeFile(ProbeFile):
         super().__init__(file_path)
 
         self.bin = np.array([])
-        self.totalTime = np.array([])
+        self.total_time = np.array([])
+        self.totalTime = self.total_time  # pylint: disable=invalid-name
+
+    # Existing x/y/z, time, and data attributes are populated by ProbeFile.read.
+    # pylint: disable=too-many-instance-attributes,attribute-defined-outside-init
 
     def read(self):
         """
@@ -133,11 +136,12 @@ class PhaseProbeFile(ProbeFile):
                 if (m := pattern.search(line))
             ], dtype=object)
         else:
-            raise Exception("Could not infer file_type")
+            raise ValueError("Could not infer file_type")
 
         self.time = np.array(data[:, 0], dtype=float)
         self.bin = np.array(data[:, 1], dtype=int)
-        self.totalTime = np.array(data[:,2], dtype=float)
+        self.total_time = np.array(data[:, 2], dtype=float)
+        self.totalTime = self.total_time  # pylint: disable=invalid-name
         self.data = data[:, 3:]
 
         if file_type == "vector/tensor":
@@ -158,10 +162,11 @@ class PhaseProbeFile(ProbeFile):
     def _validate_for_write(self) -> None:
         super()._validate_for_write()
         self.bin = np.asarray(self.bin)
-        self.totalTime = np.asarray(self.totalTime)
+        self.total_time = np.asarray(self.total_time)
+        self.totalTime = self.total_time  # pylint: disable=invalid-name
         if self.bin.ndim != 1 or len(self.bin) != len(self.time):
             raise ValueError("bin must be a one-dimensional array matching time.")
-        if self.totalTime.ndim != 1 or len(self.totalTime) != len(self.time):
+        if self.total_time.ndim != 1 or len(self.total_time) != len(self.time):
             raise ValueError("totalTime must be a one-dimensional array matching time.")
         if not np.issubdtype(self.bin.dtype, np.integer):
             if not np.all(np.equal(self.bin, np.floor(self.bin))):
@@ -171,5 +176,5 @@ class PhaseProbeFile(ProbeFile):
         return [
             self._format_number(self.time[row_index]),
             str(int(self.bin[row_index])),
-            self._format_number(self.totalTime[row_index]),
+            self._format_number(self.total_time[row_index]),
         ]

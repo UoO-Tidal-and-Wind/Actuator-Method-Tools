@@ -5,7 +5,6 @@ Reader for OpenFOAM ``force.dat`` post-processing output.
 import logging
 from pathlib import Path
 import numpy as np
-import re
 
 class ForceFile:
     """
@@ -39,6 +38,7 @@ class ForceFile:
 
         self.total = np.array([])
         self.pressure = np.array([])
+        self.ptressure = self.pressure
         self.viscous = np.array([])
 
     def set_path(self, file_path: str):
@@ -77,9 +77,10 @@ class ForceFile:
         The current implementation assumes the non-time columns are ordered as total,
         pressure, and viscous force components with three components per group.
         """
-        self.total = self.data[:,0:3]
-        self.ptressure = self.data[:,3:6]
-        self.viscous = self.data[:,6:9]
+        self.total = self.data[:, 0:3]
+        self.pressure = self.data[:, 3:6]
+        self.ptressure = self.pressure
+        self.viscous = self.data[:, 6:9]
 
     def crop_by_time(self, lower_limit: float = None, upper_limit: float = None):
         """
@@ -101,8 +102,3 @@ class ForceFile:
         self.time = self.time[time_mask]
         self.data = self.data[time_mask, :]
         self.split_data()
-
-
-
-
-

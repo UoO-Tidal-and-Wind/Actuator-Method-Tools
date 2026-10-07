@@ -109,7 +109,7 @@ class ProbeFile:
                 if "Time" in line:
                     continue
                 if "# Not Found" in line:
-                    if not (self.include_out_bounds):
+                    if not self.include_out_bounds:
                         continue
                 match = probe_pattern.match(line)
                 if match:
@@ -158,7 +158,7 @@ class ProbeFile:
                 if (m := pattern.search(line))
             ], dtype=object)
         else:
-            raise Exception("Could not infer file_type")
+            raise ValueError("Could not infer file_type")
 
         self.time = np.array(data[:, 0], dtype=float)
         self.data = data[:, 1:]

@@ -5,10 +5,11 @@ Reader for OpenFOAM ``timeInfo.dat`` post-processing output.
 import logging
 from pathlib import Path
 import numpy as np
-import re
 
 
 class TimeFile:
+    # Retain legacy component placeholders alongside timing attributes.
+    # pylint: disable=too-many-instance-attributes
     """
     Reader for runtime timing information.
 
@@ -38,6 +39,9 @@ class TimeFile:
 
         self.time = np.array([])
         self.data = np.array([])
+        self.total = np.array([])
+        self.ptressure = np.array([])
+        self.viscous = np.array([])
 
         self.cumulative_cpu_time = np.array([])
         self.cumulative_clock_time = np.array([])
@@ -81,10 +85,9 @@ class TimeFile:
         When at least four data columns are present, the third and fourth columns are
         also exposed as per-step CPU and wall-clock time.
         """
-        self.total = self.data[:, 0:3]
-        self.ptressure = self.data[:, 3:6]
-        self.viscous = self.data[:, 6:9]
-
+        self.total = np.array([])
+        self.ptressure = np.array([])
+        self.viscous = np.array([])
         self.cumulative_cpu_time = self.data[:, 0]
         self.cumulative_clock_time = self.data[:, 1]
         if self.data.shape[1] > 2:

@@ -90,7 +90,7 @@ class CaseReader:
                 "The 'shearedWakeFinder' directory is missing in '%s'.", self.path
             )
 
-    def shearedWakeReader(
+    def sheared_wake_reader(
         self,
         object_name: str,
         time_dir: Literal[
@@ -202,7 +202,8 @@ class CaseReader:
                 ``"closest to"``.
 
         Returns:
-            A populated :class:`~amtools.input_output.turbine_output.turbine_output_file.TurbineOutputFile`.
+            A populated
+            :class:`~amtools.input_output.turbine_output.turbine_output_file.TurbineOutputFile`.
 
         Raises:
             FileNotFoundError: If the resolved output file does not exist.
@@ -267,11 +268,6 @@ class CaseReader:
                     new_file_reader.read()
 
                     current_max_time = file_reader.time.max()
-                    new_min_time = new_file_reader.time.min()
-
-                    # if new_min_time > current_max_time:
-                    #     break  # only combine files that have some overlap in time
-
                     # crop the new file
                     new_file_reader.crop_time(lower_limit=current_max_time)
 
@@ -400,11 +396,6 @@ class CaseReader:
                     new_file_reader.read()
 
                     current_max_time = file_reader.time.max()
-                    new_min_time = new_file_reader.time.min()
-
-                    # if new_min_time > current_max_time:
-                    #     break  # only combine files that have some overlap in time
-
                     # crop the new file
                     new_file_reader.crop_by_time(lower_limit=current_max_time)
 
@@ -421,7 +412,7 @@ class CaseReader:
 
         return file_reader
 
-    def phaseProbe(
+    def phase_probe(
         self,
         probe_name: str,
         variable_name: str,
@@ -446,7 +437,8 @@ class CaseReader:
                 ``"closest to"``.
 
         Returns:
-            A populated :class:`~amtools.input_output.post_processing.phase_probe_file.PhaseProbeFile`.
+            A populated
+            :class:`~amtools.input_output.post_processing.phase_probe_file.PhaseProbeFile`.
 
         Raises:
             FileNotFoundError: If the phase-probe directory or resolved variable file is missing.
@@ -521,11 +513,6 @@ class CaseReader:
                     new_file_reader.read()
 
                     current_max_time = file_reader.time.max()
-                    new_min_time = new_file_reader.time.min()
-
-                    # if new_min_time > current_max_time:
-                    #     break  # only combine files that have some overlap in time
-
                     # crop the new file
                     new_file_reader.crop_by_time(lower_limit=current_max_time)
 
@@ -573,7 +560,8 @@ class CaseReader:
                 ``"closest to"``.
 
         Returns:
-            A populated :class:`~amtools.input_output.post_processing.planar_average_file.PlanarAverageFile`.
+            A populated
+            :class:`~amtools.input_output.post_processing.planar_average_file.PlanarAverageFile`.
 
         Raises:
             FileNotFoundError: If the planar averaging directory or variable file is missing.
@@ -659,7 +647,7 @@ class CaseReader:
 
         return file_reader
 
-    def planarAverage(
+    def planar_average_legacy(
         self,
         planar_average_name: str,
         variable_name: str,
@@ -680,7 +668,8 @@ class CaseReader:
                 ``"closest to"``.
 
         Returns:
-            A populated :class:`~amtools.input_output.post_processing.planar_average_file.PlanarAverageFile`.
+            A populated
+            :class:`~amtools.input_output.post_processing.planar_average_file.PlanarAverageFile`.
         """
         return self.planar_average(
             planar_average_name, variable_name, time_dir, time_dir_value
@@ -701,8 +690,12 @@ class CaseReader:
             FileNotFoundError: If the surface output directory is missing.
         """
         if not (self.post_processing_path / surfaces_name).exists():
-            logging.warning("The '%s' path is missing.", self.post_processing_path / surfaces_name)
-            raise FileNotFoundError(f"The path '{self.post_processing_path / surfaces_name}' does not exist.")
+            logging.warning(
+                "The '%s' path is missing.", self.post_processing_path / surfaces_name
+            )
+            raise FileNotFoundError(
+                f"The path '{self.post_processing_path / surfaces_name}' does not exist."
+            )
         surface_files = SurfaceFiles(self.post_processing_path / surfaces_name)
         return surface_files
 
@@ -798,11 +791,6 @@ class CaseReader:
                     new_file_reader.read()
 
                     current_max_time = file_reader.time.max()
-                    new_min_time = new_file_reader.time.min()
-
-                    # if new_min_time > current_max_time:
-                    #     break  # only combine files that have some overlap in time
-
                     # crop the new file
                     new_file_reader.crop_by_time(lower_limit=current_max_time)
 
@@ -911,11 +899,6 @@ class CaseReader:
                     new_file_reader.read()
 
                     current_max_time = file_reader.time.max()
-                    new_min_time = new_file_reader.time.min()
-
-                    # if new_min_time > current_max_time:
-                    #     break  # only combine files that have some overlap in time
-
                     # crop the new file
                     new_file_reader.crop_by_time(lower_limit=current_max_time)
 

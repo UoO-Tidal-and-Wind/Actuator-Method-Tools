@@ -1,6 +1,9 @@
 [MASTER]
 load-plugins=
 
+[MAIN]
+fail-under=9.8
+
 [DESIGN]
 # Allow functions to have up to 10 arguments
 max-args=10
